@@ -462,8 +462,13 @@ export class MoonrakerClient {
 
   /** Absolute URL for a file inside a Moonraker root, usable in <img>/<a>. */
   fileUrl(root: FileRoot, relativePath: string): string {
-    const clean = relativePath.replace(/^\/+/, '');
-    const url = `${this.endpoint.baseUrl}/server/files/${root}/${encodeURI(clean)}`;
+    // Encode per segment: a filename may legitimately contain "#", "?" or "+".
+    const clean = relativePath
+      .replace(/^\/+/, '')
+      .split('/')
+      .map(encodeURIComponent)
+      .join('/');
+    const url = `${this.endpoint.baseUrl}/server/files/${root}/${clean}`;
     if (!this.endpoint.apiKey) return url;
     // <img> cannot send headers; Moonraker accepts the key as a query param.
     return `${url}${url.includes('?') ? '&' : '?'}apikey=${encodeURIComponent(this.endpoint.apiKey)}`;
@@ -471,9 +476,9 @@ export class MoonrakerClient {
 
   /** Resolves a thumbnail path (relative to the gcode file) to a URL. */
   thumbnailUrl(gcodePath: string, relativePath: string): string {
+    // relative_path is always relative to the gcode file's own directory.
     const dir = gcodePath.includes('/') ? gcodePath.slice(0, gcodePath.lastIndexOf('/')) : '';
-    const full = relativePath.startsWith('.') || !dir ? joinPath(dir, relativePath) : relativePath;
-    return this.fileUrl('gcodes', full);
+    return this.fileUrl('gcodes', joinPath(dir, relativePath));
   }
 
   /** Makes an absolute URL out of a Moonraker-relative webcam URL. */

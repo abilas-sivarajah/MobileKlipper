@@ -20,6 +20,23 @@
   --font-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
 
   --radius-card: 0.875rem;
+
+}
+
+/* Categorical series palette for the temperature chart, validated against the
+   dark chart surface (#131a22); see docs/DESIGN.md. Declared on :root rather
+   than in @theme because they are referenced from SVG attributes, which
+   Tailwind cannot see when it tree-shakes unused theme variables. */
+:root {
+  --color-series-1: #d95926;
+  --color-series-2: #3987e5;
+  --color-series-3: #199e70;
+  --color-series-4: #c98500;
+  --color-series-5: #d55181;
+  --color-series-6: #008300;
+  --color-series-7: #9085e9;
+  --color-series-8: #e66767;
+  --color-series-extra: #8d9bab;
 }
 
 [data-theme='light'] {
@@ -31,6 +48,16 @@
   --color-muted: #5b6673;
   --color-accent: #0284c7;
   --color-accent-soft: #dbeefc;
+  /* Same eight hues stepped for the light surface, validated separately. */
+  --color-series-1: #eb6834;
+  --color-series-2: #2a78d6;
+  --color-series-3: #1baf7a;
+  --color-series-4: #eda100;
+  --color-series-5: #e87ba4;
+  --color-series-6: #008300;
+  --color-series-7: #4a3aa7;
+  --color-series-8: #e34948;
+  --color-series-extra: #5b6673;
 }
 
 html,

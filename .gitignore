@@ -8,3 +8,4 @@ coverage/
 # Capacitor native projects are generated
 android/
 ios/
+.scratch/
