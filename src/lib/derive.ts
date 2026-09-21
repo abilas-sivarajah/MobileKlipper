@@ -187,13 +187,87 @@ export function isPrinting(status: PrinterStatus): boolean {
   return state === 'printing' || state === 'paused';
 }
 
-/** 0..1 print progress, preferring the file position Klipper actually reached. */
-export function getProgress(status: PrinterStatus): number {
-  const sd = status.virtual_sdcard?.progress;
-  if (typeof sd === 'number' && Number.isFinite(sd)) return clamp01(sd);
-  const display = status.display_status?.progress;
-  if (typeof display === 'number' && Number.isFinite(display)) return clamp01(display);
-  return 0;
+/** Where a progress or time estimate is derived from. Mirrors Mainsail's options. */
+export type ProgressSource = 'file-relative' | 'file-absolute' | 'slicer' | 'filament';
+export type EstimateSource = 'file' | 'filament' | 'slicer';
+
+/**
+ * Metadata only applies while it belongs to the file actually being printed;
+ * a stale record would silently skew every estimate.
+ */
+function metadataForCurrentPrint(
+  status: PrinterStatus,
+  metadata?: Partial<GcodeMetadata> | null,
+): Partial<GcodeMetadata> | null {
+  if (!metadata) return null;
+  const printing = status.print_stats?.filename;
+  if (!printing || !metadata.filename) return null;
+  return metadata.filename === printing ? metadata : null;
+}
+
+/**
+ * Progress measured over the printable part of the file only.
+ *
+ * `virtual_sdcard.progress` is the raw byte position over the whole file, so
+ * embedded thumbnails and the slicer's config block at the end count as print
+ * progress. Excluding them is what Mainsail and Fluidd both do by default.
+ */
+export function getFileRelativeProgress(
+  status: PrinterStatus,
+  metadata?: Partial<GcodeMetadata> | null,
+): number {
+  const meta = metadataForCurrentPrint(status, metadata);
+  const position = status.virtual_sdcard?.file_position;
+  const start = meta?.gcode_start_byte;
+  const end = meta?.gcode_end_byte;
+
+  if (position != null && start != null && end != null && end > start) {
+    if (position <= start) return 0;
+    if (position >= end) return 1;
+    return (position - start) / (end - start);
+  }
+  return getFileAbsoluteProgress(status);
+}
+
+/** Raw byte position over the whole file, exactly as Klipper reports it. */
+export function getFileAbsoluteProgress(status: PrinterStatus): number {
+  const value = status.virtual_sdcard?.progress;
+  return typeof value === 'number' && Number.isFinite(value) ? clamp01(value) : 0;
+}
+
+/** Progress the slicer itself reported through M73. */
+export function getSlicerProgress(status: PrinterStatus): number {
+  const value = status.display_status?.progress;
+  return typeof value === 'number' && Number.isFinite(value) ? clamp01(value) : 0;
+}
+
+export function getFilamentProgress(
+  status: PrinterStatus,
+  metadata?: Partial<GcodeMetadata> | null,
+): number {
+  const meta = metadataForCurrentPrint(status, metadata);
+  const used = status.print_stats?.filament_used;
+  const total = meta?.filament_total;
+  if (used != null && total != null && total > 0) return clamp01(used / total);
+  return getFileAbsoluteProgress(status);
+}
+
+/** 0..1 print progress from the configured source. */
+export function getProgress(
+  status: PrinterStatus,
+  metadata?: Partial<GcodeMetadata> | null,
+  source: ProgressSource = 'file-relative',
+): number {
+  switch (source) {
+    case 'file-absolute':
+      return getFileAbsoluteProgress(status);
+    case 'slicer':
+      return getSlicerProgress(status);
+    case 'filament':
+      return getFilamentProgress(status, metadata);
+    default:
+      return getFileRelativeProgress(status, metadata);
+  }
 }
 
 export interface EtaEstimates {
@@ -203,45 +277,103 @@ export interface EtaEstimates {
   slicer: number | null;
   /** Remaining seconds from filament consumed vs. filament total. */
   filament: number | null;
-  /** Blended value used for display. */
-  best: number | null;
+  /** Headline remaining time: the mean of the sources enabled for it. */
+  remaining: number | null;
+  /** Seconds used for the finish time, averaged over its own source list. */
+  eta: number | null;
 }
 
+export interface EstimateOptions {
+  progressSource?: ProgressSource;
+  /** Sources feeding the headline remaining time. Mainsail omits the slicer here. */
+  remainingSources?: EstimateSource[];
+  /** Sources feeding the finish time. */
+  etaSources?: EstimateSource[];
+}
+
+/** Mainsail's defaults, so both apps agree out of the box. */
+export const DEFAULT_REMAINING_SOURCES: EstimateSource[] = ['file', 'filament'];
+export const DEFAULT_ETA_SOURCES: EstimateSource[] = ['file', 'filament', 'slicer'];
+
 /**
- * Three independent remaining-time estimates, as Klipper front-ends
- * conventionally show: file progress, slicer estimate and filament usage.
+ * The three independent remaining-time estimates plus the two aggregates.
+ *
+ * Only positive estimates take part in an average: a slicer estimate that a
+ * print has already overrun says nothing useful, and averaging in a zero would
+ * drag the result towards "almost done".
  */
 export function getEtaEstimates(
   status: PrinterStatus,
   metadata?: Partial<GcodeMetadata> | null,
+  options: EstimateOptions = {},
 ): EtaEstimates {
+  const meta = metadataForCurrentPrint(status, metadata);
   const printDuration = status.print_stats?.print_duration ?? 0;
-  const progress = getProgress(status);
+  const progress = getProgress(status, metadata, options.progressSource ?? 'file-relative');
 
   let file: number | null = null;
-  if (progress > 0.0001 && printDuration > 0) {
-    file = Math.max(0, printDuration / progress - printDuration);
+  if (progress > 0 && printDuration > 0) {
+    file = positiveOrNull(printDuration / progress - printDuration);
   }
 
   let slicer: number | null = null;
-  const estimated = metadata?.estimated_time;
-  if (typeof estimated === 'number' && estimated > 0) {
-    slicer = Math.max(0, estimated - printDuration);
+  const estimated = meta?.estimated_time;
+  if (typeof estimated === 'number' && estimated > 0 && printDuration > 0) {
+    slicer = positiveOrNull(estimated - printDuration);
   }
 
   let filament: number | null = null;
   const used = status.print_stats?.filament_used ?? 0;
-  const total = metadata?.filament_total;
-  if (typeof total === 'number' && total > 0 && used > 0 && printDuration > 0) {
-    const fraction = Math.min(1, used / total);
-    if (fraction > 0.0001) filament = Math.max(0, printDuration / fraction - printDuration);
+  const total = meta?.filament_total;
+  if (typeof total === 'number' && total > used && used > 0 && printDuration > 0) {
+    filament = positiveOrNull(printDuration / (used / total) - printDuration);
   }
 
-  const candidates = [file, slicer, filament].filter((v): v is number => v != null);
-  const best = candidates.length
-    ? candidates.reduce((a, b) => a + b, 0) / candidates.length
-    : null;
-  return { file, slicer, filament, best };
+  const bySource = { file, filament, slicer };
+  const mean = (sources: EstimateSource[]): number | null => {
+    const values = sources.map((key) => bySource[key]).filter((v): v is number => v != null);
+    if (!values.length) return null;
+    return values.reduce((a, b) => a + b, 0) / values.length;
+  };
+
+  return {
+    file,
+    slicer,
+    filament,
+    remaining: mean(options.remainingSources ?? DEFAULT_REMAINING_SOURCES),
+    eta: mean(options.etaSources ?? DEFAULT_ETA_SOURCES),
+  };
+}
+
+function positiveOrNull(value: number): number | null {
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+export interface FilamentUsage {
+  lengthMm: number;
+  grams: number | null;
+  /** True when the weight had to be guessed from an assumed density. */
+  estimated: boolean;
+}
+
+/**
+ * Filament consumed so far. Slicers record the total weight alongside the total
+ * length, so scaling by the used fraction gives a real figure for whatever
+ * material is loaded; without it the weight falls back to a PLA assumption.
+ */
+export function getFilamentUsage(
+  status: PrinterStatus,
+  metadata?: Partial<GcodeMetadata> | null,
+): FilamentUsage {
+  const meta = metadataForCurrentPrint(status, metadata);
+  const lengthMm = status.print_stats?.filament_used ?? 0;
+  const total = meta?.filament_total;
+  const totalWeight = meta?.filament_weight_total;
+
+  if (total != null && total > 0 && totalWeight != null && totalWeight > 0) {
+    return { lengthMm, grams: totalWeight * (lengthMm / total), estimated: false };
+  }
+  return { lengthMm, grams: null, estimated: true };
 }
 
 export interface LayerInfo {

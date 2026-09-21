@@ -5,13 +5,20 @@ import { usePrinterStore } from '@/store/printer';
 import { useUiStore } from '@/store/ui';
 import { confirmAction } from '@/store/confirm';
 import { toast } from '@/store/toast';
-import { getEtaEstimates, getLayerInfo, getPrintState, getProgress } from '@/lib/derive';
+import {
+  getEtaEstimates,
+  getFilamentUsage,
+  getLayerInfo,
+  getPrintState,
+  getProgress,
+} from '@/lib/derive';
 import {
   basename,
   filamentGrams,
   formatDuration,
   formatEta,
-  formatPercent,
+  formatLength,
+  formatProgressPercent,
   stripGcodeExtension,
 } from '@/lib/format';
 import { useTicker } from '@/lib/hooks';
@@ -21,13 +28,20 @@ export function PrintStatusCard() {
   const metadata = usePrinterStore((s) => s.metadata);
   const client = usePrinterStore((s) => s.client);
   const confirmDestructive = useUiStore((s) => s.confirmDestructive);
+  const progressSource = useUiStore((s) => s.progressSource);
+  const remainingSources = useUiStore((s) => s.remainingSources);
+  const etaSources = useUiStore((s) => s.etaSources);
   useTicker(1000);
 
   const state = getPrintState(status);
   const filename = status.print_stats?.filename ?? '';
-  const progress = getProgress(status);
-  const eta = useMemo(() => getEtaEstimates(status, metadata), [status, metadata]);
+  const progress = getProgress(status, metadata, progressSource);
+  const eta = useMemo(
+    () => getEtaEstimates(status, metadata, { progressSource, remainingSources, etaSources }),
+    [status, metadata, progressSource, remainingSources, etaSources],
+  );
   const layers = useMemo(() => getLayerInfo(status, metadata), [status, metadata]);
+  const filament = useMemo(() => getFilamentUsage(status, metadata), [status, metadata]);
 
   const thumbnail = useMemo(() => {
     const thumbs = metadata?.thumbnails;
@@ -124,7 +138,7 @@ export function PrintStatusCard() {
               tone={state === 'error' || state === 'cancelled' ? 'warn' : state === 'complete' ? 'ok' : 'accent'}
             />
             <span className="tabular text-sm font-semibold">
-              {formatPercent(state === 'complete' ? 1 : progress)}
+              {formatProgressPercent(state === 'complete' ? 1 : progress)}
             </span>
           </div>
         </div>
@@ -140,10 +154,10 @@ export function PrintStatusCard() {
         <Row label="Laufzeit" value={formatDuration(printDuration, true)} />
         <Row
           label="Restzeit"
-          value={finished ? '--' : formatDuration(eta.best, true)}
+          value={finished ? '--' : formatDuration(eta.remaining, true)}
         />
-        <Row label="Fertig um" value={finished ? '--' : formatEta(eta.best)} />
-        <Row label="Filament" value={filamentGrams(filamentUsed)} />
+        <Row label="Fertig um" value={finished ? '--' : formatEta(eta.eta)} />
+        <Row label="Filament" value={formatLength(filamentUsed)} />
       </div>
 
       <div className="flex gap-2 border-t border-line p-3">
@@ -194,8 +208,14 @@ export function PrintStatusCard() {
       <div className="border-t border-line px-4 py-2 text-[11px] text-muted">
         <span className="tabular">
           Gesamtzeit {formatDuration(totalDuration, true)}
-          {eta.slicer != null && ` · Slicer-Rest ${formatDuration(eta.slicer, true)}`}
-          {eta.file != null && ` · Datei-Rest ${formatDuration(eta.file, true)}`}
+          {` · ${
+            filament.grams != null
+              ? `${filament.grams.toFixed(1)} g`
+              : `ca. ${filamentGrams(filament.lengthMm)}`
+          }`}
+          {eta.file != null && ` · Datei ${formatDuration(eta.file, true)}`}
+          {eta.filament != null && ` · Filament ${formatDuration(eta.filament, true)}`}
+          {eta.slicer != null && ` · Slicer ${formatDuration(eta.slicer, true)}`}
         </span>
       </div>
     </Card>

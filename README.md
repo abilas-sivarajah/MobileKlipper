@@ -9,7 +9,8 @@ Fluidd – und läuft auf Handy, Tablet und Desktop, ohne Cloud-Dienst dazwische
 **Status**
 - Live-Dashboard über WebSocket-Subscriptions (keine Polling-Schleifen)
 - Druckfortschritt mit Schichtzähler, Laufzeit und drei unabhängigen Restzeit-
-  Schätzungen (Dateiposition, Slicer-Angabe, Filamentverbrauch)
+  Schätzungen (Dateiposition, Slicer-Angabe, Filamentverbrauch), gerechnet wie
+  in Mainsail – siehe [docs/DESIGN.md](docs/DESIGN.md)
 - Slicer-Thumbnail des laufenden Drucks
 - Heizungen, generische Heizer und Temperatursensoren als Kacheln
 - Temperaturverlauf-Chart mit Zieltemperatur-Linien und Crosshair-Tooltip

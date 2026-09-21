@@ -4,13 +4,16 @@ import { Button, Card, EmptyState, ProgressBar } from '@/components/ui';
 import { WebcamView } from '@/features/webcam/WebcamView';
 import { usePrinterStore } from '@/store/printer';
 import { getHeaters, getProgress, isPrinting } from '@/lib/derive';
-import { formatPercent, formatTemp } from '@/lib/format';
+import { useUiStore } from '@/store/ui';
+import { formatProgressPercent, formatTemp } from '@/lib/format';
 
 export default function WebcamPage() {
   const webcams = usePrinterStore((s) => s.webcams);
   const refreshWebcams = usePrinterStore((s) => s.refreshWebcams);
   const connection = usePrinterStore((s) => s.connection);
   const status = usePrinterStore((s) => s.status);
+  const metadata = usePrinterStore((s) => s.metadata);
+  const progressSource = useUiStore((s) => s.progressSource);
   const [index, setIndex] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
 
@@ -71,9 +74,9 @@ export default function WebcamPage() {
         <div className="space-y-2 p-3">
           {printing && (
             <div className="flex items-center gap-2">
-              <ProgressBar value={getProgress(status)} />
+              <ProgressBar value={getProgress(status, metadata, progressSource)} />
               <span className="tabular text-sm font-semibold">
-                {formatPercent(getProgress(status))}
+                {formatProgressPercent(getProgress(status, metadata, progressSource))}
               </span>
             </div>
           )}

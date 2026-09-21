@@ -58,6 +58,56 @@ hellen Theme überschrieben. Sie stehen bewusst **nicht** in Tailwinds `@theme`:
 Tailwind v4 wirft Theme-Variablen weg, die keine generierte Utility-Klasse
 benutzt, und diese hier werden nur in SVG-Attributen referenziert.
 
+## Fortschritt und Restzeit
+
+Die Werte sind bewusst so gerechnet, dass sie mit Mainsail übereinstimmen – wer
+beide nebeneinander offen hat, soll nicht zwei verschiedene Restzeiten sehen.
+
+### Fortschritt
+
+Klipper meldet in `virtual_sdcard.progress` die rohe Byte-Position über die
+**ganze** Datei. Darin stecken aber die eingebetteten Thumbnails am Anfang und
+der Konfigurationsblock des Slicers am Ende – Bytes, die der Drucker zwar liest,
+aber nicht druckt. Mainsail und Fluidd rechnen deshalb beide über den druckbaren
+Teil:
+
+```
+Fortschritt = (file_position − gcode_start_byte) / (gcode_end_byte − gcode_start_byte)
+```
+
+Fehlen die Byte-Angaben in den Metadaten, fällt die Rechnung auf den rohen Wert
+zurück. Die Prozentzahl wird **abgerundet**, nicht gerundet – sonst zeigt dieselbe
+Sekunde hier 4 % und in Mainsail 3 %.
+
+### Die drei Schätzungen
+
+| Quelle | Rechnung |
+| --- | --- |
+| Datei | `print_duration / Fortschritt − print_duration` |
+| Slicer | `estimated_time − print_duration` |
+| Filament | `print_duration / (filament_used / filament_total) − print_duration` |
+
+Nur positive Werte gehen in einen Mittelwert ein. Eine Slicer-Schätzung, die der
+Druck längst überschritten hat, sagt nichts mehr aus, und eine Null würde den
+Durchschnitt Richtung „gleich fertig" ziehen.
+
+### Warum Restzeit und „Fertig um" verschieden gemittelt werden
+
+Das ist keine Willkür, sondern Mainsails Voreinstellung (`calcEstimateTime` bzw.
+`calcEtaTime`):
+
+- **Restzeit** = Mittel aus **Datei + Filament**
+- **Fertig um** = Mittel aus **Datei + Filament + Slicer**
+
+Die Slicer-Angabe kennt die echte Beschleunigung des Druckers nicht und liegt oft
+deutlich daneben; für die prominente Restzeit bleibt sie deshalb außen vor, für
+den Zeitpunkt wird sie mitgemittelt. Beide Quellenlisten sind in den
+Einstellungen änderbar, falls in Mainsail etwas anderes eingestellt ist.
+
+Ein Regressionstest in `test/derive.test.ts` rechnet einen echten Druck nach, der
+in Mainsail `Estimate 15:40:23 · Slicer 12:01:44 · Total 0:42:06 · ETA 04:36 +1`
+anzeigte, und hält die Werte fest.
+
 ## Datenfluss
 
 Moonraker schickt nach `printer.objects.subscribe` nur noch **Teilaktualisierungen** –

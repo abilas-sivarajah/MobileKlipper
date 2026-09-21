@@ -4,6 +4,7 @@ import { Button, Card, SegmentedControl } from '@/components/ui';
 import { ToggleRow } from '@/components/ToggleRow';
 import { AddPrinterScreen } from '@/features/settings/AddPrinterScreen';
 import { PrinterEditSheet } from '@/features/settings/PrinterEditSheet';
+import { EstimateSettings } from '@/features/settings/EstimateSettings';
 import { usePrintersStore, type PrinterConfig } from '@/store/printers';
 import { useUiStore, type ThemeMode } from '@/store/ui';
 import { usePrinterStore } from '@/store/printer';
@@ -84,6 +85,8 @@ export default function SettingsPage() {
           formatLabel={(mode) => THEME_LABELS[mode]}
         />
       </Card>
+
+      <EstimateSettings />
 
       <Card title="Verhalten" padded={false}>
         <div className="divide-y divide-line px-4">

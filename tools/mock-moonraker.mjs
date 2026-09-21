@@ -15,10 +15,12 @@ const port = Number(process.argv[process.argv.indexOf('--port') + 1]) || 7125;
 
 // --- simulated printer state ------------------------------------------------
 
+// startByte covers the embedded thumbnails, endByte excludes the slicer's
+// config block at the end of the file - both matter for progress reporting.
 const FILES = [
-  { name: 'voron_cube.gcode', size: 4_812_340, time: 5040, filament: 12_400, height: 40 },
-  { name: 'benchy.gcode', size: 2_145_998, time: 3120, filament: 8200, height: 48 },
-  { name: 'bracket_v3.gcode', size: 812_004, time: 1260, filament: 3100, height: 12 },
+  { name: 'voron_cube.gcode', size: 4_812_340, time: 5040, filament: 12_400, height: 40, startByte: 128_000, endByte: 4_760_000 },
+  { name: 'benchy.gcode', size: 2_145_998, time: 3120, filament: 8200, height: 48, startByte: 96_000, endByte: 2_112_000 },
+  { name: 'bracket_v3.gcode', size: 812_004, time: 1260, filament: 3100, height: 12, startByte: 64_000, endByte: 798_000 },
 ];
 
 const state = {
@@ -76,10 +78,12 @@ function printerStatus() {
     },
     display_status: { progress: state.print.currentLayer / state.print.totalLayers, message: null },
     virtual_sdcard: {
-      progress: state.print.currentLayer / state.print.totalLayers,
+      // Klipper reports the raw byte position over the whole file; the printable
+      // span is what a front-end has to derive from the metadata.
+      progress: filePosition() / currentFile().size,
       is_active: state.print.state === 'printing',
-      file_position: 1_200_000,
-      file_size: 4_812_340,
+      file_position: filePosition(),
+      file_size: currentFile().size,
     },
     toolhead: {
       position: state.toolhead.position,
@@ -118,6 +122,16 @@ function printerStatus() {
     s[key] = { speed, rpm: key.startsWith('heater_fan') ? 6200 : null };
   }
   return s;
+}
+
+function currentFile() {
+  return FILES.find((f) => f.name === state.print.filename.split('/').pop()) ?? FILES[0];
+}
+
+function filePosition() {
+  const f = currentFile();
+  const fraction = state.print.currentLayer / state.print.totalLayers;
+  return Math.round(f.startByte + fraction * (f.endByte - f.startByte));
 }
 
 function lowerKeys(obj) {
@@ -250,6 +264,8 @@ const handlers = {
       filename: f.name, modified: Date.now() / 1000 - i * 8000, size: f.size,
       estimated_time: f.time, filament_total: f.filament, object_height: f.height,
       layer_height: 0.2, first_layer_height: 0.24, slicer: 'OrcaSlicer', slicer_version: '2.1.0',
+      gcode_start_byte: f.startByte, gcode_end_byte: f.endByte,
+      filament_weight_total: Math.round(f.filament * 0.003 * 10) / 10,
       filament_type: 'PLA', filament_name: 'Prusament Galaxy Black', nozzle_diameter: 0.4,
       thumbnails: [{ width: 300, height: 300, size: 8000, relative_path: `.thumbs/${f.name.replace('.gcode', '')}-300x300.png` }],
     })),
@@ -262,6 +278,8 @@ const handlers = {
       filename, size: f.size, modified: Date.now() / 1000, estimated_time: f.time,
       filament_total: f.filament, object_height: f.height, layer_height: 0.2,
       first_layer_height: 0.24, slicer: 'OrcaSlicer', filament_type: 'PLA',
+      gcode_start_byte: f.startByte, gcode_end_byte: f.endByte,
+      filament_weight_total: Math.round(f.filament * 0.003 * 10) / 10,
       thumbnails: [{ width: 300, height: 300, size: 8000, relative_path: `.thumbs/${f.name.replace('.gcode', '')}-300x300.png` }],
     };
   },

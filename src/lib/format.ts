@@ -95,3 +95,12 @@ export function prettyObjectName(objectName: string): string {
 function pad(n: number): string {
   return n.toString().padStart(2, '0');
 }
+
+/**
+ * Progress as a whole percent, rounded down. Mainsail floors this value, and a
+ * print that reads 4 % in one app and 3 % in another looks broken.
+ */
+export function formatProgressPercent(fraction: number | undefined | null): string {
+  if (fraction == null || !Number.isFinite(fraction)) return '--';
+  return `${Math.floor(Math.min(1, Math.max(0, fraction)) * 100)}%`;
+}
