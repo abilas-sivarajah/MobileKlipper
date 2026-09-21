@@ -16,7 +16,7 @@ export function QuickActions() {
     <Card title="Schnellzugriff">
       <div className="grid grid-cols-3 gap-2">
         <Button onClick={() => void sendGcode('G28')}>
-          <Home className={`size-4 ${allHomed ? 'text-ok' : ''}`} /> Homen
+          <Home className={`size-4 ${allHomed ? 'text-ok-ink' : ''}`} /> Homen
         </Button>
         <Button onClick={() => void sendGcode('TURN_OFF_HEATERS')}>
           <Snowflake className="size-4" /> Kühlen
@@ -30,7 +30,7 @@ export function QuickActions() {
         <div className="mt-2 grid grid-cols-2 gap-2">
           {favorites.map((macro) => (
             <Button key={macro} size="sm" onClick={() => void sendGcode(macro)}>
-              <Star className="size-3.5 text-warn" />
+              <Star className="size-3.5 text-warn-ink" />
               <span className="truncate">{macro}</span>
             </Button>
           ))}

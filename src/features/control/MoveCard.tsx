@@ -27,7 +27,7 @@ export function MoveCard() {
 
   const axisLabel = (name: string, value: number | undefined, isHomed: boolean) => (
     <div className="flex-1 text-center">
-      <p className={`text-[11px] ${isHomed ? 'text-muted' : 'text-warn'}`}>{name}</p>
+      <p className={`text-[11px] ${isHomed ? 'text-muted' : 'text-warn-ink'}`}>{name}</p>
       <p className="tabular text-sm font-medium">{value != null ? value.toFixed(2) : '--'}</p>
     </div>
   );
@@ -38,7 +38,7 @@ export function MoveCard() {
       action={
         <div className="flex gap-1">
           <Button size="sm" onClick={() => void sendGcode(home())}>
-            <Home className={`size-3.5 ${homed.x && homed.y && homed.z ? 'text-ok' : 'text-warn'}`} />
+            <Home className={`size-3.5 ${homed.x && homed.y && homed.z ? 'text-ok-ink' : 'text-warn-ink'}`} />
             Alle
           </Button>
           <Button size="sm" onClick={() => void sendGcode('M84')} aria-label="Motoren aus">
@@ -99,7 +99,7 @@ export function MoveCard() {
       </div>
 
       {!(homed.x && homed.y && homed.z) && (
-        <p className="mt-2 text-center text-[11px] text-warn">
+        <p className="mt-2 text-center text-[11px] text-warn-ink">
           Nicht gehomt – Klipper lehnt Bewegungen ab, bis G28 gelaufen ist.
         </p>
       )}

@@ -269,7 +269,7 @@ export class RpcConnection {
     this.clearTimer('watchdogTimer');
     const tick = () => {
       if (this.disposed || !this.isOpen) return;
-      if (Date.now() - this.lastMessageAt > idle) {
+      if (Date.now() - this.lastMessageAt >= idle) {
         // Silent socket: tear it down so the reconnect path runs.
         try {
           this.socket?.close(4000, 'idle timeout');

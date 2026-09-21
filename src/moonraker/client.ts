@@ -93,7 +93,8 @@ const DYNAMIC_PREFIXES = [
 export function pickSubscribedObjects(available: string[]): string[] {
   const wanted = new Set<string>();
   for (const name of available) {
-    if (CORE_OBJECTS.includes(name)) {
+    // Tool changers expose extruder1, extruder2, ... alongside "extruder".
+    if (CORE_OBJECTS.includes(name) || /^extruder\d+$/.test(name)) {
       wanted.add(name);
       continue;
     }
@@ -127,7 +128,10 @@ export function normalizeBaseUrl(input: string): string {
   const trimmed = input.trim();
   const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
   const url = new URL(withScheme);
-  if (!url.port && url.protocol === 'http:' && url.pathname === '/') url.port = '7125';
+  // URL drops a default port, so ":80" would otherwise look like "no port given"
+  // and get replaced by Moonraker's default. Read the port off the input instead.
+  const hasExplicitPort = /^[a-z]+:\/\/[^/?#]*:\d+/i.test(withScheme);
+  if (!hasExplicitPort && url.protocol === 'http:' && url.pathname === '/') url.port = '7125';
   return url.toString().replace(/\/+$/, '');
 }
 

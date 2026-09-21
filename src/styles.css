@@ -12,6 +12,11 @@
   --color-ok: #34d399;
   --color-warn: #fbbf24;
   --color-danger: #f87171;
+  /* Text variants: on the dark surface the fill colour reads fine, on white it
+     does not, so labels use these and fills keep the colours above. */
+  --color-ok-ink: #34d399;
+  --color-warn-ink: #fbbf24;
+  --color-danger-ink: #f87171;
   --color-hotend: #fb7185;
   --color-bed: #60a5fa;
   --color-chamber: #a78bfa;
@@ -48,6 +53,9 @@
   --color-muted: #5b6673;
   --color-accent: #0284c7;
   --color-accent-soft: #dbeefc;
+  --color-ok-ink: #047857;
+  --color-warn-ink: #b45309;
+  --color-danger-ink: #b91c1c;
   /* Same eight hues stepped for the light surface, validated separately. */
   --color-series-1: #eb6834;
   --color-series-2: #2a78d6;

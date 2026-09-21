@@ -256,11 +256,17 @@ export function TempChart({ history, minutes, visible, onToggle }: TempChartProp
           const on = visible.has(key);
           const current = entry.temperatures.at(-1);
           const target = entry.targets.at(-1) ?? 0;
+          const valueText = `${current != null ? `${current.toFixed(1)}°` : '--'}${
+            entry.hasTarget && target > 0 ? ` / ${target.toFixed(0)}°` : ''
+          }`;
           return (
             <li key={key}>
               <button
                 type="button"
                 aria-pressed={on}
+                // The rendered spans have no whitespace between them, which
+                // would run the name together as "Extruder210.0°".
+                aria-label={`${labelFor(key)}: ${valueText}`}
                 onClick={() => onToggle(key)}
                 className={`flex items-center gap-1.5 text-[11px] ${on ? 'text-ink' : 'text-muted/60'}`}
               >
@@ -272,10 +278,7 @@ export function TempChart({ history, minutes, visible, onToggle }: TempChartProp
                   aria-hidden
                 />
                 <span>{labelFor(key)}</span>
-                <span className="tabular text-muted">
-                  {current != null ? `${current.toFixed(1)}°` : '--'}
-                  {entry.hasTarget && target > 0 ? ` / ${target.toFixed(0)}°` : ''}
-                </span>
+                <span className="tabular text-muted">{valueText}</span>
               </button>
             </li>
           );

@@ -44,9 +44,9 @@ export default function HistoryPage() {
   }, [client, connection, version, manual]);
 
   const statusIcon = (status: string) => {
-    if (status === 'completed') return <CheckCircle2 className="size-4 text-ok" />;
-    if (status === 'cancelled') return <CircleSlash className="size-4 text-warn" />;
-    return <CircleAlert className="size-4 text-danger" />;
+    if (status === 'completed') return <CheckCircle2 className="size-4 text-ok-ink" />;
+    if (status === 'cancelled') return <CircleSlash className="size-4 text-warn-ink" />;
+    return <CircleAlert className="size-4 text-danger-ink" />;
   };
 
   return (
@@ -73,7 +73,7 @@ export default function HistoryPage() {
 
       {error && (
         <Card>
-          <p className="text-sm text-danger">{error}</p>
+          <p className="text-sm text-danger-ink">{error}</p>
         </Card>
       )}
 

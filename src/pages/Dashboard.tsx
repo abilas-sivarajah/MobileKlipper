@@ -88,7 +88,7 @@ export default function Dashboard() {
             {filamentSensors.map((sensor) => (
               <li key={sensor.key} className="flex items-center justify-between text-sm">
                 <span className="text-muted">{sensor.name}</span>
-                <span className={sensor.detected ? 'text-ok' : 'text-warn'}>
+                <span className={sensor.detected ? 'text-ok-ink' : 'text-warn-ink'}>
                   {sensor.enabled
                     ? sensor.detected
                       ? 'Filament erkannt'

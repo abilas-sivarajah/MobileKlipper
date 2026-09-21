@@ -81,11 +81,11 @@ export function AddPrinterScreen({ onDone }: { onDone?: () => void }) {
           </Button>
 
           {result?.ok && (
-            <div className="flex items-start gap-2 rounded-xl border border-ok/40 bg-ok/10 p-3 text-sm text-ok">
+            <div className="flex items-start gap-2 rounded-xl border border-ok/40 bg-ok/10 p-3 text-sm text-ok-ink">
               <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
               <div>
                 <p className="font-medium">Moonraker erreichbar</p>
-                <p className="text-xs text-ok/80">
+                <p className="text-xs text-ok-ink/80">
                   Version {result.info.moonraker_version ?? 'unbekannt'} · Klipper:{' '}
                   {result.info.klippy_state}
                 </p>
@@ -94,11 +94,11 @@ export function AddPrinterScreen({ onDone }: { onDone?: () => void }) {
           )}
 
           {result && !result.ok && (
-            <div className="flex items-start gap-2 rounded-xl border border-danger/40 bg-danger/10 p-3 text-sm text-danger">
+            <div className="flex items-start gap-2 rounded-xl border border-danger/40 bg-danger/10 p-3 text-sm text-danger-ink">
               <CircleAlert className="mt-0.5 size-4 shrink-0" />
               <div>
                 <p className="font-medium">{result.error}</p>
-                {result.hint && <p className="mt-1 text-xs text-danger/80">{result.hint}</p>}
+                {result.hint && <p className="mt-1 text-xs text-danger-ink/80">{result.hint}</p>}
               </div>
             </div>
           )}

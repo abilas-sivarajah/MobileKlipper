@@ -22,11 +22,11 @@ export function ConnectionBanner() {
           ? 'Verbindung verloren – versuche erneut …'
           : 'Nicht verbunden';
     return (
-      <div className="flex items-center gap-3 border-b border-warn/30 bg-warn/10 px-4 py-2.5 text-sm text-warn">
+      <div className="flex items-center gap-3 border-b border-warn/30 bg-warn/10 px-4 py-2.5 text-sm text-warn-ink">
         <PlugZap className="size-4 shrink-0" />
         <div className="flex-1">
           <p className="font-medium">{label}</p>
-          {detail && <p className="text-xs text-warn/80">{detail}</p>}
+          {detail && <p className="text-xs text-warn-ink/80">{detail}</p>}
         </div>
         <Button size="sm" onClick={reconnect}>
           <RefreshCw className="size-3.5" /> Neu
@@ -39,7 +39,7 @@ export function ConnectionBanner() {
 
   const isShutdown = klippy === 'shutdown' || klippy === 'error';
   return (
-    <div className="border-b border-danger/30 bg-danger/10 px-4 py-2.5 text-sm text-danger">
+    <div className="border-b border-danger/30 bg-danger/10 px-4 py-2.5 text-sm text-danger-ink">
       <div className="flex items-center gap-3">
         <TriangleAlert className="size-4 shrink-0" />
         <div className="flex-1">
@@ -51,7 +51,7 @@ export function ConnectionBanner() {
                 : 'Klipper wurde gestoppt'}
           </p>
           {stateMessage && (
-            <p className="mt-0.5 line-clamp-3 font-mono text-[11px] leading-snug text-danger/80">
+            <p className="mt-0.5 line-clamp-3 font-mono text-[11px] leading-snug text-danger-ink/80">
               {stateMessage}
             </p>
           )}

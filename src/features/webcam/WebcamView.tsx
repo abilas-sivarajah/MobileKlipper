@@ -89,7 +89,7 @@ export function WebcamView({
         onError={() => setFailed(true)}
       />
       {mode === 'unsupported' && (
-        <p className="bg-warn/10 px-3 py-1.5 text-[11px] text-warn">
+        <p className="bg-warn/10 px-3 py-1.5 text-[11px] text-warn-ink">
           {webcam.service} wird noch nicht nativ unterstützt – es werden Einzelbilder geladen.
         </p>
       )}

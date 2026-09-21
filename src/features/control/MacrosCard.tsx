@@ -57,7 +57,7 @@ export function MacrosCard() {
                 onClick={() => printer && toggleFavorite(printer.id, macro.name)}
                 className="p-1"
               >
-                <Star className={`size-4 ${pinned ? 'fill-warn text-warn' : 'text-muted'}`} />
+                <Star className={`size-4 ${pinned ? 'fill-warn text-warn-ink' : 'text-muted'}`} />
               </button>
               <div className="min-w-0 flex-1">
                 <p className="truncate font-mono text-xs">{macro.name}</p>

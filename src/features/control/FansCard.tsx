@@ -58,7 +58,7 @@ export function FansCard() {
         ) : (
           <div key={pin.key} className="flex items-center justify-between py-2 text-sm">
             <span className="flex items-center gap-1.5 text-muted">
-              <Lightbulb className={`size-3.5 ${pin.value > 0 ? 'text-warn' : ''}`} />
+              <Lightbulb className={`size-3.5 ${pin.value > 0 ? 'text-warn-ink' : ''}`} />
               {pin.name}
             </span>
             <button
@@ -70,7 +70,7 @@ export function FansCard() {
               className={`h-6 w-11 rounded-full transition ${pin.value > 0 ? 'bg-accent' : 'bg-elevated'}`}
             >
               <span
-                className={`block size-5 rounded-full bg-ink transition ${
+                className={`block size-5 rounded-full bg-white shadow-sm transition ${
                   pin.value > 0 ? 'translate-x-5.5' : 'translate-x-0.5'
                 }`}
               />

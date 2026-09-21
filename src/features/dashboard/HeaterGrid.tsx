@@ -25,7 +25,7 @@ export function HeaterGrid({
           >
             <div className="flex items-center gap-1.5 text-xs text-muted">
               <Flame
-                className={`size-3.5 ${active ? (heating ? 'text-warn' : 'text-ok') : ''}`}
+                className={`size-3.5 ${active ? (heating ? 'text-warn-ink' : 'text-ok-ink') : ''}`}
               />
               <span className="truncate">{heater.name}</span>
             </div>
@@ -37,7 +37,7 @@ export function HeaterGrid({
               {heater.power > 0 && ` · ${Math.round(heater.power * 100)} %`}
             </p>
             {heater.canExtrude === false && (
-              <p className="mt-1 text-[11px] text-warn">zu kalt zum Extrudieren</p>
+              <p className="mt-1 text-[11px] text-warn-ink">zu kalt zum Extrudieren</p>
             )}
           </button>
         );

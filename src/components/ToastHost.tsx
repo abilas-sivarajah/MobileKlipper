@@ -10,9 +10,9 @@ const icons: Record<ToastKind, typeof Info> = {
 
 const tones: Record<ToastKind, string> = {
   info: 'border-line text-ink',
-  success: 'border-ok/40 text-ok',
-  warning: 'border-warn/40 text-warn',
-  error: 'border-danger/40 text-danger',
+  success: 'border-ok/40 text-ok-ink',
+  warning: 'border-warn/40 text-warn-ink',
+  error: 'border-danger/40 text-danger-ink',
 };
 
 export function ToastHost() {

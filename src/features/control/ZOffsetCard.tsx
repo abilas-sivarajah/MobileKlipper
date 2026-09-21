@@ -74,7 +74,7 @@ export function ZOffsetCard() {
       </div>
 
       {savePending && (
-        <p className="mt-2 text-[11px] text-warn">
+        <p className="mt-2 text-[11px] text-warn-ink">
           Klipper hat ungespeicherte Konfigurationsänderungen.
         </p>
       )}

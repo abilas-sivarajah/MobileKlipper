@@ -24,7 +24,7 @@ export function ToggleRow({
         className={`h-6 w-11 shrink-0 rounded-full transition ${checked ? 'bg-accent' : 'bg-elevated'}`}
       >
         <span
-          className={`block size-5 rounded-full bg-ink transition ${
+          className={`block size-5 rounded-full bg-white shadow-sm transition ${
             checked ? 'translate-x-5.5' : 'translate-x-0.5'
           }`}
         />

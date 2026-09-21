@@ -132,7 +132,7 @@ export default function SettingsPage() {
         {serverInfo?.warnings?.length ? (
           <ul className="mt-2 space-y-1">
             {serverInfo.warnings.map((warning) => (
-              <li key={warning} className="text-[11px] text-warn">
+              <li key={warning} className="text-[11px] text-warn-ink">
                 {warning}
               </li>
             ))}

@@ -77,9 +77,9 @@ export function Badge({
 }) {
   const map = {
     default: 'bg-elevated text-muted',
-    ok: 'bg-ok/15 text-ok',
-    warn: 'bg-warn/15 text-warn',
-    danger: 'bg-danger/15 text-danger',
+    ok: 'bg-ok/15 text-ok-ink',
+    warn: 'bg-warn/15 text-warn-ink',
+    danger: 'bg-danger/15 text-danger-ink',
     accent: 'bg-accent/15 text-accent',
   };
   return (

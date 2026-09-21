@@ -10,7 +10,7 @@ const KIND_CLASS: Record<ConsoleLine['kind'], string> = {
   command: 'text-accent',
   response: 'text-ink',
   info: 'text-muted',
-  error: 'text-danger',
+  error: 'text-danger-ink',
 };
 
 export default function ConsolePage() {
