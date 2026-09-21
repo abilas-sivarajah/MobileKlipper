@@ -1,0 +1,263 @@
+/**
+ * Live printer runtime: owns the MoonrakerClient for the active printer and
+ * mirrors everything the UI needs (status, console, temperature history,
+ * webcams, metadata of the running job).
+ */
+import { create } from 'zustand';
+import { MoonrakerClient, mergeStatus } from '@/moonraker/client';
+import type { SocketState } from '@/moonraker/rpc';
+import type {
+  GcodeMetadata,
+  GcodeStoreEntry,
+  KlippyState,
+  PrinterInfo,
+  PrinterStatus,
+  ServerInfo,
+  WebcamConfig,
+} from '@/moonraker/types';
+import { appendSample, emptyHistory, seedHistory, type TempHistory } from '@/lib/tempHistory';
+import type { PrinterConfig } from './printers';
+import { toast } from './toast';
+
+export type ConsoleLineKind = 'command' | 'response' | 'error' | 'info';
+
+export interface ConsoleLine {
+  id: number;
+  kind: ConsoleLineKind;
+  message: string;
+  time: number;
+}
+
+const CONSOLE_LIMIT = 400;
+let consoleId = 1;
+
+function classify(message: string): ConsoleLineKind {
+  if (message.startsWith('!!')) return 'error';
+  if (message.startsWith('//') || message.startsWith('echo:')) return 'info';
+  return 'response';
+}
+
+function makeLine(message: string, kind?: ConsoleLineKind, time?: number): ConsoleLine {
+  return {
+    id: consoleId++,
+    kind: kind ?? classify(message),
+    message,
+    time: time ?? Date.now() / 1000,
+  };
+}
+
+interface PrinterRuntimeState {
+  printerId: string | null;
+  client: MoonrakerClient | null;
+  connection: SocketState;
+  connectionDetail: string | null;
+  klippy: KlippyState;
+  klippyMessage: string | null;
+  status: PrinterStatus;
+  availableObjects: string[];
+  serverInfo: ServerInfo | null;
+  printerInfo: PrinterInfo | null;
+  tempHistory: TempHistory;
+  console: ConsoleLine[];
+  webcams: WebcamConfig[];
+  metadata: GcodeMetadata | null;
+  metadataFor: string | null;
+  lastError: string | null;
+
+  connect: (printer: PrinterConfig) => void;
+  disconnect: () => void;
+  reconnect: () => void;
+  sendGcode: (script: string, echo?: boolean) => Promise<boolean>;
+  appendConsole: (message: string, kind?: ConsoleLineKind) => void;
+  clearConsole: () => void;
+  loadMetadata: (filename: string | null | undefined) => Promise<void>;
+  refreshWebcams: () => Promise<void>;
+}
+
+const initial = {
+  printerId: null,
+  client: null,
+  connection: 'idle' as SocketState,
+  connectionDetail: null,
+  klippy: 'disconnected' as KlippyState,
+  klippyMessage: null,
+  status: {} as PrinterStatus,
+  availableObjects: [],
+  serverInfo: null,
+  printerInfo: null,
+  tempHistory: emptyHistory(),
+  console: [],
+  webcams: [],
+  metadata: null,
+  metadataFor: null,
+  lastError: null,
+};
+
+export const usePrinterStore = create<PrinterRuntimeState>((set, get) => ({
+  ...initial,
+
+  connect: (printer) => {
+    const previous = get().client;
+    previous?.disconnect('switching printer');
+
+    const client = new MoonrakerClient(
+      {
+        baseUrl: printer.baseUrl,
+        ...(printer.apiKey ? { apiKey: printer.apiKey } : {}),
+        ...(printer.token ? { token: printer.token } : {}),
+      },
+      {
+        onConnectionState: (connection, detail) =>
+          set({ connection, connectionDetail: detail ?? null }),
+
+        onKlippyState: (klippy, message) => {
+          set({ klippy, klippyMessage: message ?? null });
+          if (klippy === 'shutdown' || klippy === 'error') {
+            const msg = get().status.webhooks?.state_message;
+            set((s) => ({
+              console: [...s.console, makeLine(msg ?? `Klipper: ${klippy}`, 'error')].slice(
+                -CONSOLE_LIMIT,
+              ),
+            }));
+          }
+        },
+
+        onStatusUpdate: (patch) => {
+          const state = get();
+          const status = mergeStatus(state.status, patch);
+          set({
+            status,
+            tempHistory: appendSample(state.tempHistory, status),
+          });
+          const filename = status.print_stats?.filename;
+          if (filename && filename !== state.metadataFor) {
+            void get().loadMetadata(filename);
+          } else if (!filename && state.metadataFor) {
+            set({ metadata: null, metadataFor: null });
+          }
+        },
+
+        onGcodeResponse: (line) =>
+          set((s) => ({ console: [...s.console, makeLine(line)].slice(-CONSOLE_LIMIT) })),
+
+        onReady: (status, objects) => {
+          set({ availableObjects: objects, lastError: null });
+          void hydrate(client, set, get);
+          const filename = status.print_stats?.filename;
+          if (filename) void get().loadMetadata(filename);
+        },
+
+        onError: (err) => {
+          set({ lastError: err.message });
+        },
+      },
+    );
+
+    set({
+      ...initial,
+      tempHistory: emptyHistory(),
+      printerId: printer.id,
+      client,
+      connection: 'connecting',
+    });
+
+    void client.connect().catch((err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
+      set({ lastError: message, connection: 'closed', connectionDetail: message });
+    });
+  },
+
+  disconnect: () => {
+    get().client?.disconnect();
+    set({ ...initial, tempHistory: emptyHistory() });
+  },
+
+  reconnect: () => {
+    const { client } = get();
+    if (!client) return;
+    void client.connect();
+  },
+
+  sendGcode: async (script, echo = true) => {
+    const { client } = get();
+    if (!client) {
+      toast.error('Keine Verbindung zum Drucker');
+      return false;
+    }
+    if (echo) {
+      set((s) => ({ console: [...s.console, makeLine(script, 'command')].slice(-CONSOLE_LIMIT) }));
+    }
+    try {
+      await client.gcode(script);
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      set((s) => ({
+        console: [...s.console, makeLine(`!! ${message}`, 'error')].slice(-CONSOLE_LIMIT),
+      }));
+      toast.error(message);
+      return false;
+    }
+  },
+
+  appendConsole: (message, kind) =>
+    set((s) => ({ console: [...s.console, makeLine(message, kind)].slice(-CONSOLE_LIMIT) })),
+
+  clearConsole: () => set({ console: [] }),
+
+  loadMetadata: async (filename) => {
+    const { client } = get();
+    if (!client || !filename) {
+      set({ metadata: null, metadataFor: null });
+      return;
+    }
+    set({ metadataFor: filename });
+    try {
+      const metadata = await client.metadata(filename);
+      // Guard against a print that changed while the request was in flight.
+      if (get().metadataFor === filename) set({ metadata });
+    } catch {
+      if (get().metadataFor === filename) set({ metadata: null });
+    }
+  },
+
+  refreshWebcams: async () => {
+    const { client } = get();
+    if (!client) return;
+    try {
+      const { webcams } = await client.listWebcams();
+      set({ webcams: webcams.filter((w) => w.enabled !== false) });
+    } catch {
+      set({ webcams: [] });
+    }
+  },
+}));
+
+/** Pulls the one-off data that is not delivered through subscriptions. */
+async function hydrate(
+  client: MoonrakerClient,
+  set: (partial: Partial<PrinterRuntimeState>) => void,
+  get: () => PrinterRuntimeState,
+): Promise<void> {
+  const [info, printerInfo, temps, gcodeStore] = await Promise.allSettled([
+    client.serverInfo(),
+    client.printerInfo(),
+    client.temperatureStore(true),
+    client.gcodeStore(150),
+  ]);
+
+  if (get().client !== client) return; // printer switched mid-flight
+
+  if (info.status === 'fulfilled') set({ serverInfo: info.value });
+  if (printerInfo.status === 'fulfilled') set({ printerInfo: printerInfo.value });
+  if (temps.status === 'fulfilled') set({ tempHistory: seedHistory(temps.value) });
+  if (gcodeStore.status === 'fulfilled') {
+    const entries: GcodeStoreEntry[] = gcodeStore.value.gcode_store ?? [];
+    set({
+      console: entries
+        .slice(-CONSOLE_LIMIT)
+        .map((e) => makeLine(e.message, e.type === 'command' ? 'command' : undefined, e.time)),
+    });
+  }
+  await get().refreshWebcams();
+}
