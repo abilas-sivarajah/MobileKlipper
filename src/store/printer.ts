@@ -63,6 +63,9 @@ interface PrinterRuntimeState {
   metadata: GcodeMetadata | null;
   metadataFor: string | null;
   lastError: string | null;
+  /** Bumped by notify_filelist_changed / notify_history_changed so views reload. */
+  fileListVersion: number;
+  historyVersion: number;
 
   connect: (printer: PrinterConfig) => void;
   disconnect: () => void;
@@ -91,6 +94,8 @@ const initial = {
   metadata: null,
   metadataFor: null,
   lastError: null,
+  fileListVersion: 0,
+  historyVersion: 0,
 };
 
 export const usePrinterStore = create<PrinterRuntimeState>((set, get) => ({
@@ -100,17 +105,22 @@ export const usePrinterStore = create<PrinterRuntimeState>((set, get) => ({
     const previous = get().client;
     previous?.disconnect('switching printer');
 
-    const client = new MoonrakerClient(
+    let client: MoonrakerClient;
+    const isCurrent = () => get().client === client;
+
+    client = new MoonrakerClient(
       {
         baseUrl: printer.baseUrl,
         ...(printer.apiKey ? { apiKey: printer.apiKey } : {}),
         ...(printer.token ? { token: printer.token } : {}),
       },
       {
-        onConnectionState: (connection, detail) =>
-          set({ connection, connectionDetail: detail ?? null }),
+        onConnectionState: (connection, detail) => {
+          if (isCurrent()) set({ connection, connectionDetail: detail ?? null });
+        },
 
         onKlippyState: (klippy, message) => {
+          if (!isCurrent()) return;
           set({ klippy, klippyMessage: message ?? null });
           if (klippy === 'shutdown' || klippy === 'error') {
             const msg = get().status.webhooks?.state_message;
@@ -123,6 +133,7 @@ export const usePrinterStore = create<PrinterRuntimeState>((set, get) => ({
         },
 
         onStatusUpdate: (patch) => {
+          if (!isCurrent()) return;
           const state = get();
           const status = mergeStatus(state.status, patch);
           set({
@@ -137,18 +148,30 @@ export const usePrinterStore = create<PrinterRuntimeState>((set, get) => ({
           }
         },
 
-        onGcodeResponse: (line) =>
-          set((s) => ({ console: [...s.console, makeLine(line)].slice(-CONSOLE_LIMIT) })),
+        onGcodeResponse: (line) => {
+          if (isCurrent()) {
+            set((s) => ({ console: [...s.console, makeLine(line)].slice(-CONSOLE_LIMIT) }));
+          }
+        },
 
         onReady: (status, objects) => {
+          if (!isCurrent()) return;
           set({ availableObjects: objects, lastError: null });
           void hydrate(client, set, get);
           const filename = status.print_stats?.filename;
           if (filename) void get().loadMetadata(filename);
         },
 
+        onFileListChanged: () => {
+          if (isCurrent()) set((s) => ({ fileListVersion: s.fileListVersion + 1 }));
+        },
+
+        onHistoryChanged: () => {
+          if (isCurrent()) set((s) => ({ historyVersion: s.historyVersion + 1 }));
+        },
+
         onError: (err) => {
-          set({ lastError: err.message });
+          if (isCurrent()) set({ lastError: err.message });
         },
       },
     );
@@ -162,6 +185,7 @@ export const usePrinterStore = create<PrinterRuntimeState>((set, get) => ({
     });
 
     void client.connect().catch((err: unknown) => {
+      if (!isCurrent()) return;
       const message = err instanceof Error ? err.message : String(err);
       set({ lastError: message, connection: 'closed', connectionDetail: message });
     });

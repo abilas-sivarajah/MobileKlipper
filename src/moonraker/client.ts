@@ -136,6 +136,12 @@ export class MoonrakerClient {
   private subscribed: string[] = [];
   private initializing = false;
   private klippyState: KlippyState = 'disconnected';
+  /**
+   * Bumped on every connect/disconnect. connect() awaits a token before it
+   * opens the socket, so a client torn down during that await must not go on to
+   * connect and start emitting events after its replacement already exists.
+   */
+  private generation = 0;
 
   constructor(
     private endpoint: MoonrakerEndpoint,
@@ -160,11 +166,13 @@ export class MoonrakerClient {
 
   async connect(): Promise<void> {
     this.disconnect();
+    const generation = ++this.generation;
     let wsUrl = websocketUrlFor(this.endpoint.baseUrl);
 
     // Browsers cannot set headers on a WebSocket handshake, so an API key has to
     // be exchanged for a single-use token passed in the query string.
     const oneshot = await this.fetchOneshotToken();
+    if (generation !== this.generation) return;
     if (oneshot) {
       const url = new URL(wsUrl);
       url.searchParams.set('token', oneshot);
@@ -191,6 +199,7 @@ export class MoonrakerClient {
   }
 
   disconnect(reason = 'disconnected by user'): void {
+    this.generation++;
     this.rpc?.dispose(reason);
     this.rpc = null;
     this.subscribed = [];
