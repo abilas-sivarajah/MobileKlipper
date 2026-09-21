@@ -45,7 +45,7 @@ export function PrintStatusCard() {
       const ok = await confirmAction({
         title: 'Druck abbrechen?',
         message: 'Der laufende Druck wird gestoppt und kann nicht fortgesetzt werden.',
-        confirmLabel: 'Abbrechen',
+        confirmLabel: 'Druck abbrechen',
         cancelLabel: 'Weiterdrucken',
       });
       if (!ok) return;
