@@ -142,7 +142,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <ConnectionBanner />
       </header>
 
-      <main className="flex-1 overflow-y-auto overscroll-contain pb-[calc(4.25rem+env(safe-area-inset-bottom))]">
+      <main className="flex-1 overflow-y-auto overscroll-contain pb-[calc(3.5rem+env(safe-area-inset-bottom))]">
         {children}
       </main>
 
