@@ -82,7 +82,7 @@ export function getHeaters(status: PrinterStatus): HeaterView[] {
           : `Extruder ${key.slice(8)}`
         : isBed
           ? 'Heizbett'
-          : prettyObjectName(key),
+          : genericHeaterName(key),
       temperature: obj.temperature,
       target: num(obj.target, 0),
       power: num(obj.power, 0),
@@ -92,9 +92,21 @@ export function getHeaters(status: PrinterStatus): HeaterView[] {
       canExtrude: typeof obj.can_extrude === 'boolean' ? obj.can_extrude : undefined,
     });
   }
-  // Extruder first, then bed, then everything else alphabetically.
-  const rank = (h: HeaterView) => (h.kind === 'extruder' ? 0 : h.kind === 'bed' ? 1 : 2);
+  // Extruder first, then the bed and its extra zones, then everything else.
+  const rank = (h: HeaterView) =>
+    h.kind === 'extruder' ? 0 : h.kind === 'bed' ? 1 : h.name.startsWith('Heizbett') ? 1.5 : 2;
   return out.sort((a, b) => rank(a) - rank(b) || a.key.localeCompare(b.key));
+}
+
+/**
+ * Segmented beds (Neptune 4 Pro/Plus/Max) expose the second zone as a
+ * heater_generic; give it a name that says what it is.
+ */
+function genericHeaterName(key: string): string {
+  const name = key.slice(key.indexOf(' ') + 1).toLowerCase();
+  if (/bed.*(outer|aussen|außen)|(outer|aussen|außen).*bed/.test(name)) return 'Heizbett außen';
+  if (/^heater_bed_?\d+$|^bed_?\d+$/.test(name)) return `Heizbett ${name.match(/\d+$/)![0]}`;
+  return prettyObjectName(key);
 }
 
 export function getSensors(status: PrinterStatus): SensorView[] {

@@ -306,3 +306,15 @@ describe('getFilamentUsage', () => {
     expect(usage.grams).toBeNull();
   });
 });
+
+describe('segmented bed naming', () => {
+  it('names the outer zone of a Neptune 4 Pro bed', () => {
+    const heaters = getHeaters({
+      heater_bed: { temperature: 60, target: 60 },
+      'heater_generic heater_bed_outer': { temperature: 59, target: 60 },
+      'heater_generic heater_bed1': { temperature: 20, target: 0 },
+      'heater_generic chamber': { temperature: 30, target: 0 },
+    });
+    expect(heaters.map((h) => h.name)).toEqual(['Heizbett', 'Heizbett außen', 'Heizbett 1', 'Chamber']);
+  });
+});

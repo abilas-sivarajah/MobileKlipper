@@ -2,10 +2,12 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   Camera,
   ChevronDown,
+  Ellipsis,
   Files,
   Gauge,
   Gamepad2,
   Octagon,
+  Save,
   Settings,
   Terminal,
 } from 'lucide-react';
@@ -17,6 +19,8 @@ import { confirmAction } from '@/store/confirm';
 import { toast } from '@/store/toast';
 import { Badge, Button } from './ui';
 import { ConnectionBanner } from './ConnectionBanner';
+import { ManualProbePanel } from './ManualProbePanel';
+import { useSaveConfig } from '@/features/calibrate/useSaveConfig';
 
 const NAV = [
   { to: '/', label: 'Status', icon: Gauge },
@@ -24,7 +28,11 @@ const NAV = [
   { to: '/files', label: 'Dateien', icon: Files },
   { to: '/cam', label: 'Kamera', icon: Camera },
   { to: '/console', label: 'Konsole', icon: Terminal },
+  { to: '/more', label: 'Mehr', icon: Ellipsis },
 ];
+
+/** Pages reached through "Mehr" keep that tab highlighted. */
+const MORE_ROUTES = ['/more', '/calibrate', '/config', '/system', '/history', '/settings'];
 
 export function Layout({ children }: { children: ReactNode }) {
   const location = useLocation();
@@ -36,6 +44,8 @@ export function Layout({ children }: { children: ReactNode }) {
   const client = usePrinterStore((s) => s.client);
   const confirmDestructive = useUiStore((s) => s.confirmDestructive);
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const savePending = usePrinterStore((s) => s.status.configfile?.save_config_pending === true);
+  const saveConfig = useSaveConfig();
 
   const active = printers.find((p) => p.id === activeId);
   const online = connection === 'open';
@@ -93,6 +103,18 @@ export function Layout({ children }: { children: ReactNode }) {
             </div>
           </div>
 
+          {savePending && (
+            <Button
+              tone="accent"
+              size="sm"
+              onClick={() => void saveConfig()}
+              title="Ungespeicherte Konfiguration – SAVE_CONFIG"
+            >
+              <Save className="size-4" />
+              <span className="hidden min-[380px]:inline">Speichern</span>
+            </Button>
+          )}
+
           <Button
             tone="danger"
             size="sm"
@@ -146,15 +168,22 @@ export function Layout({ children }: { children: ReactNode }) {
         {children}
       </main>
 
+      <ManualProbePanel />
+
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
         <ul className="flex">
           {NAV.map(({ to, label, icon: Icon }) => {
-            const isActive = to === '/' ? location.pathname === '/' : location.pathname.startsWith(to);
+            const isActive =
+              to === '/'
+                ? location.pathname === '/'
+                : to === '/more'
+                  ? MORE_ROUTES.some((r) => location.pathname.startsWith(r))
+                  : location.pathname.startsWith(to);
             return (
               <li key={to} className="flex-1">
                 <NavLink
                   to={to}
-                  className={`flex flex-col items-center gap-0.5 py-2 text-[11px] ${
+                  className={`flex flex-col items-center gap-0.5 py-2 text-[10.5px] ${
                     isActive ? 'text-accent' : 'text-muted'
                   }`}
                 >

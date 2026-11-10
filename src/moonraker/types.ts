@@ -134,6 +134,34 @@ export type PauseResumeObject = {
   is_paused?: boolean;
 }
 
+/** Active during PROBE_CALIBRATE, Z_ENDSTOP_CALIBRATE and other manual probing. */
+export type ManualProbeObject = {
+  is_active?: boolean;
+  z_position?: number | null;
+  z_position_lower?: number | null;
+  z_position_upper?: number | null;
+}
+
+export type BedScrewsObject = {
+  is_active?: boolean;
+  state?: 'adjust' | 'fine' | null;
+  current_screw?: number;
+  accepted_screws?: number;
+}
+
+export type ScrewsTiltAdjustObject = {
+  error?: boolean;
+  max_deviation?: number | null;
+  results?: Record<string, { z: number; sign: 'CW' | 'CCW'; adjust: string; is_base: boolean }>;
+}
+
+export type FirmwareRetractionObject = {
+  retract_length?: number;
+  retract_speed?: number;
+  unretract_extra_length?: number;
+  unretract_speed?: number;
+}
+
 /**
  * Flat map of every subscribed printer object, keyed exactly as Klipper names
  * them ("heater_bed", "temperature_sensor raspberry_pi", ...). Known objects are
@@ -156,6 +184,10 @@ export interface PrinterStatus {
   motion_report?: MotionReportObject;
   pause_resume?: PauseResumeObject;
   mcu?: McuObject;
+  manual_probe?: ManualProbeObject;
+  bed_screws?: BedScrewsObject;
+  screws_tilt_adjust?: ScrewsTiltAdjustObject;
+  firmware_retraction?: FirmwareRetractionObject;
   [key: string]: Record<string, unknown> | undefined;
 }
 

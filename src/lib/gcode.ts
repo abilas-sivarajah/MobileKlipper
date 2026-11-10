@@ -167,3 +167,13 @@ export function setVelocityLimit(limits: {
   }
   return parts.join(' ');
 }
+
+/** Prefixes G28 when any axis is unhomed; most calibration tools require it. */
+export function homeIfNeeded(homed: { x: boolean; y: boolean; z: boolean }, script: string): string {
+  return homed.x && homed.y && homed.z ? script : `G28\n${script}`;
+}
+
+/** Absolute XY move, e.g. to the bed centre before PROBE_CALIBRATE. */
+export function moveToXY(x: number, y: number, speedMmS: number): string {
+  return `G90\nG1 X${Number(x.toFixed(2))} Y${Number(y.toFixed(2))} F${feedrate(speedMmS)}`;
+}

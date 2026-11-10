@@ -16,6 +16,8 @@ import WebcamPage from '@/pages/WebcamPage';
 import ConsolePage from '@/pages/ConsolePage';
 import SettingsPage from '@/pages/SettingsPage';
 import HistoryPage from '@/pages/HistoryPage';
+import CalibratePage from '@/pages/CalibratePage';
+import MorePage from '@/pages/MorePage';
 
 export default function App() {
   const printers = usePrintersStore((s) => s.printers);
@@ -68,6 +70,8 @@ export default function App() {
           <Route path="/cam" element={<WebcamPage />} />
           <Route path="/console" element={<ConsolePage />} />
           <Route path="/history" element={<HistoryPage />} />
+          <Route path="/calibrate" element={<CalibratePage />} />
+          <Route path="/more" element={<MorePage />} />
           <Route path="/settings/*" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
