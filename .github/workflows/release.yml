@@ -1,0 +1,87 @@
+name: Build & Release
+
+# Wie bei GX Tube: jeder Push wird getestet und gebaut, jeder Push auf den
+# Standard-Branch wird automatisch als Release veröffentlicht. Die App meldet
+# das neue Release selbst, Moonraker installiert es ([update_manager mobileklipper]).
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Landet in der App (Versionsvergleich) und in release_info.json (Moonraker)
+      MOBILEKLIPPER_VERSION: 0.1.${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Abhängigkeiten
+        run: npm ci
+
+      - name: Typprüfung
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm test
+
+      - name: Bauen
+        run: npm run build
+
+      # Moonraker erwartet ein Zip mit release_info.json im Wurzelverzeichnis,
+      # benannt nach dem Abschnitt in der moonraker.conf.
+      - name: Paket für Moonraker
+        run: |
+          grep -q "\"version\": \"v${MOBILEKLIPPER_VERSION}\"" dist/release_info.json
+          (cd dist && zip -qr ../mobileklipper.zip .)
+          unzip -l mobileklipper.zip | grep -q ' release_info.json$'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mobileklipper-${{ env.MOBILEKLIPPER_VERSION }}
+          path: mobileklipper.zip
+
+      - name: Änderung für die Release-Notiz
+        run: echo "CHANGES=$(git log -1 --format=%s | tr -d '\r')" >> "$GITHUB_ENV"
+
+      - name: Release veröffentlichen
+        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.MOBILEKLIPPER_VERSION }}
+          name: MobileKlipper ${{ env.MOBILEKLIPPER_VERSION }}
+          make_latest: true
+          files: mobileklipper.zip
+          body: |
+            Neu: ${{ env.CHANGES }}
+
+            **Aktualisieren:** Die App meldet diese Version selbst („Update verfügbar" → „Jetzt aktualisieren").
+            Dafür muss sie in der `moonraker.conf` eingetragen sein:
+
+            ```ini
+            [update_manager mobileklipper]
+            type: web
+            channel: stable
+            repo: ${{ github.repository }}
+            path: ~/mobileklipper
+            ```
+
+            **Erstinstallation:** `mobileklipper.zip` nach `~/mobileklipper` entpacken (siehe README, „Updates").
+
+            Stand: ${{ github.sha }}

@@ -5,9 +5,11 @@ import { ToggleRow } from '@/components/ToggleRow';
 import { AddPrinterScreen } from '@/features/settings/AddPrinterScreen';
 import { PrinterEditSheet } from '@/features/settings/PrinterEditSheet';
 import { EstimateSettings } from '@/features/settings/EstimateSettings';
+import { AppUpdateCard } from '@/features/settings/AppUpdateCard';
 import { usePrintersStore, type PrinterConfig } from '@/store/printers';
 import { useUiStore, type ThemeMode } from '@/store/ui';
 import { usePrinterStore } from '@/store/printer';
+import { APP_VERSION } from '@/lib/appUpdate';
 import { notificationsSupported } from '@/lib/useNotifications';
 import { toast } from '@/store/toast';
 
@@ -165,8 +167,10 @@ export default function SettingsPage() {
         ) : null}
       </Card>
 
+      <AppUpdateCard />
+
       <p className="pb-2 text-center text-[11px] text-muted">
-        MobileKlipper · Klipper-Steuerung als PWA
+        MobileKlipper {APP_VERSION} · Klipper-Steuerung als PWA
       </p>
 
       <PrinterEditSheet printer={editing} onClose={() => setEditing(null)} />

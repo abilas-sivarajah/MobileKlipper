@@ -9,6 +9,8 @@ import { usePrintersStore } from '@/store/printers';
 import { useUiStore } from '@/store/ui';
 import { useWakeLock } from '@/lib/hooks';
 import { usePrinterNotifications } from '@/lib/useNotifications';
+import { useAppUpdateChecks } from '@/lib/useAppUpdates';
+import { AppUpdateDialog } from '@/components/AppUpdateDialog';
 import { isPrinting } from '@/lib/derive';
 import Dashboard from '@/pages/Dashboard';
 import Control from '@/pages/Control';
@@ -55,6 +57,7 @@ export default function App() {
 
   useWakeLock(keepAwake && printing);
   usePrinterNotifications();
+  useAppUpdateChecks();
 
   if (!printers.length) {
     return (
@@ -62,6 +65,7 @@ export default function App() {
         <AddPrinterScreen />
         <ToastHost />
         <ConfirmHost />
+        <AppUpdateDialog />
       </>
     );
   }
@@ -86,6 +90,7 @@ export default function App() {
       </Layout>
       <ToastHost />
       <ConfirmHost />
+      <AppUpdateDialog />
     </>
   );
 }

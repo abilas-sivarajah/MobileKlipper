@@ -78,6 +78,8 @@ Fluidd – und läuft auf Handy, Tablet und Desktop, ohne Cloud-Dienst dazwische
   sowie einem Filter für die periodischen Temperaturmeldungen
 
 **Allgemein**
+- Updates aus GitHub-Releases: „Update verfügbar"-Dialog, Installation über Moonraker,
+  danach Neustart in die neue Version (siehe „Ausliefern und Updates")
 - Mehrere Drucker, Umschalten in der Kopfzeile
 - Druckerprofile für Ender 3 V2 und die Neptune-4-Reihe mit passenden Startwerten
   (Tempo, Presets, Filamentweg) und modellspezifischen Hinweisen
@@ -241,18 +243,88 @@ node tools/mock-moonraker.mjs --profile neptune4 --port 7127
 | `npm test` | Unit-Tests |
 | `npm run typecheck` | Nur Typprüfung |
 
-## Ausliefern
+## Ausliefern und Updates
 
-`npm run build` erzeugt statische Dateien in `dist/`. Die können überall liegen –
-auch direkt auf dem Drucker-Host neben Mainsail:
+Die App aktualisiert sich wie GX Tube und ABI TV über **GitHub-Releases**. Weil sie
+eine Web-App ist, spielt **Moonraker** das Update ein, genauso wie bei Mainsail und
+Fluidd.
+
+### Releases
+
+Jeder Push auf den Standard-Branch baut über `.github/workflows/release.yml`
+automatisch ein Release `v0.1.<Build-Nummer>` mit `mobileklipper.zip`. Die
+Release-Notiz übernimmt die Commit-Zeile als „Neu: …". Andere Branches und Pull
+Requests werden nur getestet und gebaut. Von Hand geht es unter Actions →
+„Build & Release" → „Run workflow".
+
+### Einmalig: auf dem Drucker installieren
+
+Neben Mainsail/Fluidd auf dem Drucker-Host (Benutzer anpassen, z. B. `pi` auf dem
+Raspberry Pi):
 
 ```bash
-npm run build
-scp -r dist/* pi@printer.local:/home/pi/mobileklipper/
+mkdir -p ~/mobileklipper && cd ~/mobileklipper
+wget https://github.com/abilas-sivarajah/MobileKlipper/releases/latest/download/mobileklipper.zip
+unzip -o mobileklipper.zip && rm mobileklipper.zip
 ```
 
-Als PWA installierst du sie dann über „Zum Startbildschirm hinzufügen". Der Service
+Ausliefern über das vorhandene nginx, z. B. auf Port 8090, in
+`/etc/nginx/sites-available/mobileklipper`:
+
+```nginx
+server {
+    listen 8090;
+    root /home/pi/mobileklipper;
+    index index.html;
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+    # Den Service Worker nie zwischenspeichern, sonst kommen Updates verspätet an
+    location = /sw.js {
+        add_header Cache-Control "no-cache";
+    }
+}
+```
+
+```bash
+sudo ln -s /etc/nginx/sites-available/mobileklipper /etc/nginx/sites-enabled/
+sudo systemctl reload nginx
+```
+
+Dann in der `moonraker.conf` die neue Adresse unter `cors_domains` ergänzen (z. B.
+`http://192.168.1.42:8090`) und das Update eintragen:
+
+```ini
+[update_manager mobileklipper]
+type: web
+channel: stable
+repo: abilas-sivarajah/MobileKlipper
+path: ~/mobileklipper
+```
+
+Moonraker neu starten. MobileKlipper taucht danach auch in der Update-Liste von
+Mainsail/Fluidd und unter „Mehr → System & Strom" auf.
+
+### So läuft ein Update
+
+- Beim Öffnen und beim Zurückkehren in die App fragt sie GitHub nach dem neuesten
+  Release, höchstens alle 15 Minuten (abschaltbar unter Einstellungen → „App & Updates").
+- Ist es neuer, erscheint „Update verfügbar" mit der Neuerung. „Später" blendet diese
+  Version für 12 Stunden aus.
+- „Jetzt aktualisieren" lässt Moonraker die Version von GitHub holen und installieren.
+  Danach lädt die App neu und läuft in der neuen Version. Während eines Drucks sperrt
+  Moonraker Updates, die App sagt das dann.
+- Wurde die App anders aktualisiert, etwa über Mainsail oder per Hand kopiert, meldet
+  ein Banner „Neue App-Version geladen" mit „Neu laden".
+- Ohne `[update_manager mobileklipper]` zeigt der Dialog den passenden Eintrag und
+  einen Link zum Release.
+
+Als PWA installierst du die App über „Zum Startbildschirm hinzufügen". Der Service
 Worker cacht nur die App-Shell; Druckerdaten laufen immer live über den WebSocket.
+
+Lokal bauen geht weiterhin mit `npm run build`, das Ergebnis liegt in `dist/`
+(inklusive `release_info.json` für Moonraker). Die Versionsnummer kommt aus
+`MOBILEKLIPPER_VERSION`, sonst aus der `package.json`.
 
 ## Native Apps mit Capacitor
 

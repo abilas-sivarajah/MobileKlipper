@@ -396,6 +396,11 @@ export class MoonrakerClient {
       : this.call('machine.update.status');
   }
 
+  /** Asks GitHub for one component's latest release, e.g. right before upgrading it. */
+  refreshUpdate(name: string): Promise<UpdateStatus> {
+    return this.call('machine.update.refresh', { name }, { timeoutMs: 120_000 });
+  }
+
   /** Updates run for minutes; progress arrives as notify_update_response. */
   upgrade(name: string): Promise<string> {
     return this.call('machine.update.upgrade', { name }, { timeoutMs: 0 });

@@ -196,3 +196,28 @@ Gemeldet werden nur **Übergänge** (`lib/notify.ts`): wer sich mit einem Drucke
 verbindet, dessen Druck längst fertig ist, bekommt kein „Druck fertig". Nach jedem
 Verbindungsaufbau wird zuerst eine Ausgangslage genommen. Sichtbar offen zeigt die
 App Toasts, im Hintergrund Systembenachrichtigungen über den Service Worker.
+
+## App-Updates
+
+Das Schema stammt aus GX Tube und ABI TV: `releases/latest` abfragen, Versionen
+numerisch vergleichen, „Später" gilt 12 Stunden für genau diese Version, beim Öffnen
+höchstens alle 15 Minuten prüfen, Fehler nur bei der manuellen Prüfung melden
+(`lib/appUpdate.ts`, `store/appUpdate.ts`).
+
+Eine Web-App kann ihre Dateien auf dem Server nicht selbst ersetzen. Das übernimmt
+Moonrakers Update-Manager mit `type: web`: Er lädt `mobileklipper.zip` aus dem Release
+und prüft die Installation anhand von `release_info.json`. Beides erzeugt der Build
+(`vite.config.ts`) aus derselben Versionsnummer, die auch in die App kompiliert wird.
+Release-Tag, `release_info.json` und Anzeige in der App können dadurch nicht
+auseinanderlaufen.
+
+Vor dem Upgrade fragt die App Moonraker per `machine.update.refresh` gezielt nach
+diesem einen Eintrag. Moonraker merkt sich GitHubs Antwort lange und würde sonst
+„bereits aktuell" melden.
+
+Danach bleibt der Service Worker: Er hält die alte App-Shell im Cache. Der Worker
+ist deshalb auf `registerType: 'prompt'` gestellt. Nach dem Upgrade holt die App
+den neuen Worker und lässt ihn übernehmen (`lib/sw.ts`), statt nur neu zu laden und
+dabei wieder die alten Dateien aus dem Cache zu bekommen. Kommen neue Dateien auf
+anderem Weg (Mainsail, Kopieren), erscheint ein Banner statt eines ungefragten
+Neuladens mitten in einer Eingabe.

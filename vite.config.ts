@@ -1,15 +1,55 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig, type Plugin } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as {
+  version: string;
+};
+
+/**
+ * The release workflow sets MOBILEKLIPPER_VERSION from the tag it publishes;
+ * local builds fall back to package.json.
+ */
+const version = (process.env.MOBILEKLIPPER_VERSION || pkg.version).replace(/^v/, '');
+
+/**
+ * Moonraker's update manager validates a web client by the release_info.json
+ * in its install folder and compares "version" with the GitHub release tag.
+ */
+function releaseInfo(): Plugin {
+  return {
+    name: 'mobileklipper-release-info',
+    apply: 'build',
+    generateBundle() {
+      this.emitFile({
+        type: 'asset',
+        fileName: 'release_info.json',
+        source: `${JSON.stringify(
+          { project_name: 'MobileKlipper', project_owner: 'abilas-sivarajah', version: `v${version}` },
+          null,
+          2,
+        )}\n`,
+      });
+    },
+  };
+}
+
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(version),
+  },
   plugins: [
     react(),
     tailwindcss(),
+    releaseInfo(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // The app decides when to swap in a new version (after a Moonraker
+      // update, or when the user taps "Neu laden"), never mid-task.
+      registerType: 'prompt',
+      injectRegister: false,
       includeAssets: ['favicon.svg'],
       manifest: {
         name: 'MobileKlipper',

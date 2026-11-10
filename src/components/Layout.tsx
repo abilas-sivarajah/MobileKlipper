@@ -22,6 +22,8 @@ import { Badge, Button } from './ui';
 import { ConnectionBanner } from './ConnectionBanner';
 import { ManualProbePanel } from './ManualProbePanel';
 import { useSaveConfig } from '@/features/calibrate/useSaveConfig';
+import { useAppUpdateStore } from '@/store/appUpdate';
+import { reloadToLatest } from '@/lib/sw';
 
 const NAV = [
   { to: '/', label: 'Status', icon: Gauge },
@@ -55,6 +57,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const savePending = usePrinterStore((s) => s.status.configfile?.save_config_pending === true);
   const saveConfig = useSaveConfig();
+  const swUpdateReady = useAppUpdateStore((s) => s.swUpdateReady);
 
   const active = printers.find((p) => p.id === activeId);
   const online = connection === 'open';
@@ -169,6 +172,15 @@ export function Layout({ children }: { children: ReactNode }) {
         )}
 
         <ConnectionBanner />
+
+        {swUpdateReady && (
+          <div className="flex items-center gap-3 border-b border-accent/30 bg-accent/10 px-4 py-2 text-sm">
+            <span className="flex-1 text-ink">Neue App-Version geladen</span>
+            <Button size="sm" tone="accent" onClick={() => void reloadToLatest()}>
+              Neu laden
+            </Button>
+          </div>
+        )}
       </header>
 
       <main className="flex-1 overflow-y-auto overscroll-contain pb-[calc(3.5rem+env(safe-area-inset-bottom))]">

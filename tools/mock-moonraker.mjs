@@ -658,11 +658,14 @@ const handlers = {
       klipper: { name: 'klipper', configured_type: 'git_repo', version: 'v0.12.0-245', remote_version: 'v0.12.0-301', is_dirty: PROFILE === 'neptune4', is_valid: PROFILE !== 'neptune4', commits_behind: new Array(12).fill({}) },
       moonraker: { name: 'moonraker', configured_type: 'git_repo', version: 'v0.9.3-12', remote_version: 'v0.9.3-12', is_dirty: false, is_valid: true, commits_behind: [] },
       mainsail: { name: 'mainsail', configured_type: 'web', version: 'v2.13.1', remote_version: 'v2.14.0' },
+      // As if moonraker.conf had [update_manager mobileklipper] (see README, "Updates")
+      mobileklipper: { name: 'mobileklipper', configured_type: 'web', version: 'v0.1.42', remote_version: 'v0.1.43' },
     },
   }),
   'machine.update.refresh': () => handlers['machine.update.status'](),
   'machine.update.upgrade': async ({ name }) => {
-    await sleep(3000);
+    if (!name) throw new Error('Missing name');
+    await sleep(2500);
     return 'ok';
   },
   'printer.gcode.script': ({ script }) => {
