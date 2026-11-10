@@ -232,7 +232,14 @@ function configfile() {
 function printerStatus() {
   const printing = state.print.state === 'printing';
   const s = {
-    webhooks: { state: state.klippyReady ? 'ready' : 'shutdown', state_message: state.klippyReady ? 'Printer is ready' : 'Emergency stop' },
+    webhooks: {
+      state: state.klippyReady ? 'ready' : 'shutdown',
+      state_message: state.klippyReady
+        ? 'Printer is ready'
+        : state.power.some((d) => d.status === 'off')
+          ? "MCU 'mcu' shutdown: Lost communication with MCU 'mcu'"
+          : 'Emergency stop',
+    },
     print_stats: {
       filename: state.print.filename,
       state: state.print.state,
@@ -632,6 +639,15 @@ const handlers = {
     }
     d.status = action === 'toggle' ? (d.status === 'on' ? 'off' : 'on') : action;
     broadcast('notify_power_changed', [{ ...d }]);
+    // The printer hangs on this plug: without power the MCU is gone, and
+    // restart_klipper_when_powered brings Klipper back once it returns.
+    if (d.status === 'off') {
+      state.klippyReady = false;
+      for (const h of Object.values(state.heaters)) h.target = 0;
+      broadcast('notify_klippy_shutdown', []);
+    } else {
+      restartKlippy();
+    }
     return { [device]: d.status };
   },
   'machine.update.status': () => ({
@@ -644,6 +660,11 @@ const handlers = {
       mainsail: { name: 'mainsail', configured_type: 'web', version: 'v2.13.1', remote_version: 'v2.14.0' },
     },
   }),
+  'machine.update.refresh': () => handlers['machine.update.status'](),
+  'machine.update.upgrade': async ({ name }) => {
+    await sleep(3000);
+    return 'ok';
+  },
   'printer.gcode.script': ({ script }) => {
     gcodeLog.push({ message: script, time: Date.now() / 1000, type: 'command' });
     return runScript(script);

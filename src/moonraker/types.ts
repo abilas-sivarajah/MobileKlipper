@@ -349,3 +349,31 @@ export interface ProcStats {
   websocket_connections?: number;
   throttled_state?: { bits: number; flags: string[] } | null;
 }
+
+export interface PowerDevice {
+  device: string;
+  status: 'on' | 'off' | 'init' | 'error';
+  locked_while_printing?: boolean;
+  type?: string;
+}
+
+export interface UpdateComponent {
+  name?: string;
+  configured_type?: string;
+  version?: string;
+  remote_version?: string;
+  full_version_string?: string;
+  is_dirty?: boolean;
+  is_valid?: boolean;
+  corrupt?: boolean;
+  commits_behind?: unknown[];
+  commits_behind_count?: number;
+  package_count?: number;
+  package_list?: string[];
+}
+
+export interface UpdateStatus {
+  busy?: boolean;
+  github_rate_limit?: number | null;
+  version_info: Record<string, UpdateComponent>;
+}

@@ -11,12 +11,14 @@ import type {
   HistoryJob,
   HistoryTotals,
   KlippyState,
+  PowerDevice,
   PrinterInfo,
   PrinterStatus,
   ProcStats,
   ServerInfo,
   SystemInfo,
   TemperatureStore,
+  UpdateStatus,
   WebcamConfig,
 } from './types';
 
@@ -41,7 +43,10 @@ export interface ClientEvents {
   onFileListChanged?: (payload: unknown) => void;
   onHistoryChanged?: (payload: unknown) => void;
   onProcStats?: (payload: ProcStats) => void;
+  onPowerChanged?: (device: PowerDevice) => void;
   onError?: (err: Error) => void;
+  /** Fires after every (re)connect to Moonraker, whether or not Klipper is up. */
+  onServerInfo?: (info: ServerInfo) => void;
   /** Fires once the printer objects have been (re)subscribed. */
   onReady?: (status: PrinterStatus, objects: string[]) => void;
 }
@@ -228,6 +233,7 @@ export class MoonrakerClient {
     this.initializing = true;
     try {
       const info = await this.serverInfo();
+      this.events.onServerInfo?.(info);
       this.setKlippyState(info.klippy_connected ? info.klippy_state : 'disconnected');
       if (!info.klippy_connected || info.klippy_state !== 'ready') {
         // Klipper is down; notify_klippy_ready will re-trigger this.
@@ -285,6 +291,11 @@ export class MoonrakerClient {
         break;
       case 'notify_proc_stat_update':
         this.events.onProcStats?.(n.params[0] as ProcStats);
+        break;
+      case 'notify_power_changed':
+        if (n.params[0] && typeof n.params[0] === 'object') {
+          this.events.onPowerChanged?.(n.params[0] as PowerDevice);
+        }
         break;
       default:
         break;
@@ -368,6 +379,26 @@ export class MoonrakerClient {
 
   procStats(): Promise<ProcStats> {
     return this.call<ProcStats>('machine.proc_stats');
+  }
+
+  powerDevices(): Promise<{ devices: PowerDevice[] }> {
+    return this.call('machine.device_power.devices');
+  }
+
+  setPowerDevice(device: string, action: 'on' | 'off' | 'toggle'): Promise<Record<string, string>> {
+    return this.call('machine.device_power.post_device', { device, action });
+  }
+
+  updateStatus(refresh = false): Promise<UpdateStatus> {
+    // A refresh asks GitHub and can take a while.
+    return refresh
+      ? this.call('machine.update.refresh', undefined, { timeoutMs: 120_000 })
+      : this.call('machine.update.status');
+  }
+
+  /** Updates run for minutes; progress arrives as notify_update_response. */
+  upgrade(name: string): Promise<string> {
+    return this.call('machine.update.upgrade', { name }, { timeoutMs: 0 });
   }
 
   // --- print jobs -------------------------------------------------------
@@ -461,6 +492,26 @@ export class MoonrakerClient {
   }
 
   // --- HTTP helpers -----------------------------------------------------
+
+  /** Downloads a text file (config, log) with the auth headers fetch can send. */
+  async fetchText(root: FileRoot, relativePath: string): Promise<string> {
+    const clean = relativePath.replace(/^\/+/, '').split('/').map(encodeURIComponent).join('/');
+    const res = await fetch(`${this.endpoint.baseUrl}/server/files/${root}/${clean}`, {
+      headers: this.authHeaders(),
+      cache: 'no-store',
+    });
+    if (!res.ok) throw new Error(`Laden fehlgeschlagen: ${res.status} ${res.statusText}`);
+    return res.text();
+  }
+
+  /** Writes a text file back through the upload endpoint. */
+  async saveText(root: FileRoot, relativePath: string, text: string): Promise<void> {
+    const slash = relativePath.lastIndexOf('/');
+    const name = relativePath.slice(slash + 1);
+    const dir = slash >= 0 ? relativePath.slice(0, slash) : '';
+    const file = new File([text], name, { type: 'text/plain' });
+    await this.uploadFile(file, { root, ...(dir ? { path: dir } : {}) });
+  }
 
   private authHeaders(): Record<string, string> {
     const headers: Record<string, string> = {};

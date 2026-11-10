@@ -10,8 +10,10 @@ import type {
   GcodeMetadata,
   GcodeStoreEntry,
   KlippyState,
+  PowerDevice,
   PrinterInfo,
   PrinterStatus,
+  ProcStats,
   ServerInfo,
   WebcamConfig,
 } from '@/moonraker/types';
@@ -63,6 +65,10 @@ interface PrinterRuntimeState {
   metadata: GcodeMetadata | null;
   metadataFor: string | null;
   lastError: string | null;
+  /** Host load, temperature and throttling; pushed by Moonraker every second. */
+  procStats: ProcStats | null;
+  /** Moonraker [power] devices, e.g. the smart plug the printer hangs on. */
+  powerDevices: PowerDevice[];
   /** Bumped by notify_filelist_changed / notify_history_changed so views reload. */
   fileListVersion: number;
   historyVersion: number;
@@ -75,6 +81,8 @@ interface PrinterRuntimeState {
   clearConsole: () => void;
   loadMetadata: (filename: string | null | undefined) => Promise<void>;
   refreshWebcams: () => Promise<void>;
+  refreshPower: () => Promise<void>;
+  setPower: (device: string, action: 'on' | 'off') => Promise<boolean>;
 }
 
 const initial = {
@@ -94,6 +102,8 @@ const initial = {
   metadata: null,
   metadataFor: null,
   lastError: null,
+  procStats: null,
+  powerDevices: [],
   fileListVersion: 0,
   historyVersion: 0,
 };
@@ -154,6 +164,18 @@ export const usePrinterStore = create<PrinterRuntimeState>((set, get) => ({
           }
         },
 
+        onServerInfo: (info) => {
+          if (!isCurrent()) return;
+          set({ serverInfo: info });
+          // Power devices matter most while Klipper is down because the
+          // printer itself is switched off.
+          void get().refreshPower();
+          void client
+            .procStats()
+            .then((procStats) => isCurrent() && set({ procStats }))
+            .catch(() => undefined);
+        },
+
         onReady: (status, objects) => {
           if (!isCurrent()) return;
           set({ availableObjects: objects, lastError: null });
@@ -172,6 +194,21 @@ export const usePrinterStore = create<PrinterRuntimeState>((set, get) => ({
 
         onError: (err) => {
           if (isCurrent()) set({ lastError: err.message });
+        },
+
+        onProcStats: (stats) => {
+          if (!isCurrent()) return;
+          // The push carries one moonraker_stats sample, the query an array.
+          set((s) => ({ procStats: { ...(s.procStats ?? {}), ...stats } }));
+        },
+
+        onPowerChanged: (device) => {
+          if (!isCurrent()) return;
+          set((s) => ({
+            powerDevices: s.powerDevices.some((d) => d.device === device.device)
+              ? s.powerDevices.map((d) => (d.device === device.device ? { ...d, ...device } : d))
+              : [...s.powerDevices, device],
+          }));
         },
       },
     );
@@ -245,6 +282,35 @@ export const usePrinterStore = create<PrinterRuntimeState>((set, get) => ({
     }
   },
 
+  refreshPower: async () => {
+    const { client, serverInfo } = get();
+    if (!client || !serverInfo?.components.includes('power')) return;
+    try {
+      const { devices } = await client.powerDevices();
+      set({ powerDevices: devices ?? [] });
+    } catch {
+      set({ powerDevices: [] });
+    }
+  },
+
+  setPower: async (device, action) => {
+    const { client } = get();
+    if (!client) return false;
+    try {
+      const result = await client.setPowerDevice(device, action);
+      const status = result[device];
+      if (status === 'on' || status === 'off') {
+        set((s) => ({
+          powerDevices: s.powerDevices.map((d) => (d.device === device ? { ...d, status } : d)),
+        }));
+      }
+      return true;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Schalten fehlgeschlagen');
+      return false;
+    }
+  },
+
   refreshWebcams: async () => {
     const { client } = get();
     if (!client) return;
@@ -263,17 +329,19 @@ async function hydrate(
   set: (partial: Partial<PrinterRuntimeState>) => void,
   get: () => PrinterRuntimeState,
 ): Promise<void> {
-  const [info, printerInfo, temps, gcodeStore] = await Promise.allSettled([
+  const [info, printerInfo, temps, gcodeStore, procStats] = await Promise.allSettled([
     client.serverInfo(),
     client.printerInfo(),
     client.temperatureStore(true),
     client.gcodeStore(150),
+    client.procStats(),
   ]);
 
   if (get().client !== client) return; // printer switched mid-flight
 
   if (info.status === 'fulfilled') set({ serverInfo: info.value });
   if (printerInfo.status === 'fulfilled') set({ printerInfo: printerInfo.value });
+  if (procStats.status === 'fulfilled') set({ procStats: procStats.value });
   if (temps.status === 'fulfilled') set({ tempHistory: seedHistory(temps.value) });
   if (gcodeStore.status === 'fulfilled') {
     const entries: GcodeStoreEntry[] = gcodeStore.value.gcode_store ?? [];
@@ -283,5 +351,5 @@ async function hydrate(
         .map((e) => makeLine(e.message, e.type === 'command' ? 'command' : undefined, e.time)),
     });
   }
-  await get().refreshWebcams();
+  await Promise.all([get().refreshWebcams(), get().refreshPower()]);
 }

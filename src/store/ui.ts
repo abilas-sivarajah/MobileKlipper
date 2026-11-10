@@ -21,6 +21,8 @@ interface UiState {
   /** Minutes of temperature history shown in the chart. */
   chartMinutes: number;
   keepScreenAwake: boolean;
+  /** System notifications for print end, errors and pauses while the app runs. */
+  notifications: boolean;
   /** How print progress is measured; Mainsail's "calcPrintProgress". */
   progressSource: ProgressSource;
   /** Sources averaged into the headline remaining time. */
@@ -30,7 +32,14 @@ interface UiState {
   setTheme: (theme: ThemeMode) => void;
   setProgressSource: (source: ProgressSource) => void;
   toggleEstimateSource: (field: 'remainingSources' | 'etaSources', source: EstimateSource) => void;
-  toggle: (key: 'confirmDestructive' | 'showHiddenMacros' | 'hideTemperatureReplies' | 'keepScreenAwake') => void;
+  toggle: (
+    key:
+      | 'confirmDestructive'
+      | 'showHiddenMacros'
+      | 'hideTemperatureReplies'
+      | 'keepScreenAwake'
+      | 'notifications',
+  ) => void;
   setChartMinutes: (minutes: number) => void;
 }
 
@@ -43,6 +52,7 @@ export const useUiStore = create<UiState>()(
       hideTemperatureReplies: true,
       chartMinutes: 10,
       keepScreenAwake: false,
+      notifications: false,
       progressSource: 'file-relative',
       remainingSources: DEFAULT_REMAINING_SOURCES,
       etaSources: DEFAULT_ETA_SOURCES,
@@ -78,6 +88,7 @@ export const useUiStore = create<UiState>()(
             ? state.remainingSources
             : current.remainingSources,
           etaSources: state.etaSources?.length ? state.etaSources : current.etaSources,
+          notifications: state.notifications ?? current.notifications,
         };
       },
     },

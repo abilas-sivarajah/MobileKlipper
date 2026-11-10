@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Flame, Printer, Trash2 } from 'lucide-react';
+import { Flame, Pencil, Printer, Trash2 } from 'lucide-react';
 import { PreheatSheet } from '@/features/dashboard/PreheatSheet';
 import { metadataTemps } from '@/lib/preheat';
 import { Button, Row, Sheet, Spinner } from '@/components/ui';
 import type { DirectoryFile } from '@/moonraker/types';
 import { usePrinterStore } from '@/store/printer';
-import { confirmAction } from '@/store/confirm';
+import { confirmAction, promptText } from '@/store/confirm';
 import { toast } from '@/store/toast';
 import {
   basename,
@@ -113,6 +113,29 @@ export function FileDetailSheet({
     }
   };
 
+  const rename = async () => {
+    const target = await promptText({
+      title: 'Umbenennen / verschieben',
+      message: 'Mit Ordner davor verschiebst du die Datei, z. B. „PLA/teil.gcode".',
+      input: { label: 'Neuer Pfad', initial: relativePath },
+      confirmLabel: 'Übernehmen',
+      tone: 'accent',
+    });
+    if (!target || target === relativePath) return;
+    const dest = /\.(gcode|g|gco|ufp|nc)$/i.test(target) ? target : `${target}.gcode`;
+    setBusy(true);
+    try {
+      await client?.moveFile(`gcodes/${relativePath}`, `gcodes/${dest.replace(/^\/+/, '')}`);
+      toast.success('Datei verschoben');
+      onDeleted();
+      onClose();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Verschieben fehlgeschlagen');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <Sheet open title={stripGcodeExtension(file.filename)} onClose={onClose}>
       {thumbnail && (
@@ -155,6 +178,9 @@ export function FileDetailSheet({
       <div className="mt-4 flex gap-2">
         <Button tone="danger" onClick={() => void remove()} disabled={busy} aria-label="Löschen">
           <Trash2 className="size-4" />
+        </Button>
+        <Button onClick={() => void rename()} disabled={busy} aria-label="Umbenennen oder verschieben">
+          <Pencil className="size-4" />
         </Button>
         <Button onClick={() => setPreheatOpen(true)} disabled={printing} aria-label="Vorheizen">
           <Flame className="size-4" />

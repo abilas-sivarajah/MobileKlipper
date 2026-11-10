@@ -8,6 +8,8 @@ import { EstimateSettings } from '@/features/settings/EstimateSettings';
 import { usePrintersStore, type PrinterConfig } from '@/store/printers';
 import { useUiStore, type ThemeMode } from '@/store/ui';
 import { usePrinterStore } from '@/store/printer';
+import { notificationsSupported } from '@/lib/useNotifications';
+import { toast } from '@/store/toast';
 
 const THEMES: ThemeMode[] = ['dark', 'light', 'system'];
 const THEME_LABELS: Record<ThemeMode, string> = {
@@ -107,6 +109,26 @@ export default function SettingsPage() {
             hint="Filtert die periodischen ok B:.. T0:.. Zeilen in der Konsole"
             checked={ui.hideTemperatureReplies}
             onChange={() => ui.toggle('hideTemperatureReplies')}
+          />
+          <ToggleRow
+            label="Benachrichtigungen"
+            hint={
+              notificationsSupported()
+                ? 'Druck fertig, Fehler, Filament leer – solange die App im Hintergrund offen ist'
+                : 'Von diesem Browser nicht unterstützt'
+            }
+            checked={ui.notifications}
+            disabled={!notificationsSupported()}
+            onChange={async () => {
+              if (!ui.notifications && Notification.permission !== 'granted') {
+                const result = await Notification.requestPermission();
+                if (result !== 'granted') {
+                  toast.warning('Benachrichtigungen wurden im Browser abgelehnt');
+                  return;
+                }
+              }
+              ui.toggle('notifications');
+            }}
           />
           <ToggleRow
             label="Bildschirm anlassen"

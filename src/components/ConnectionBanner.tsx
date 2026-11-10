@@ -1,4 +1,6 @@
-import { PlugZap, RefreshCw, TriangleAlert } from 'lucide-react';
+import { Power, PlugZap, RefreshCw, TriangleAlert } from 'lucide-react';
+import { togglePower } from '@/features/system/PowerCard';
+import { prettyObjectName } from '@/lib/format';
 import { usePrinterStore } from '@/store/printer';
 import { Button } from './ui';
 
@@ -13,6 +15,7 @@ export function ConnectionBanner() {
   const stateMessage = usePrinterStore((s) => s.status.webhooks?.state_message);
   const reconnect = usePrinterStore((s) => s.reconnect);
   const sendGcode = usePrinterStore((s) => s.sendGcode);
+  const powerDevices = usePrinterStore((s) => s.powerDevices);
 
   if (connection !== 'open') {
     const label =
@@ -38,6 +41,8 @@ export function ConnectionBanner() {
   if (klippy === 'ready') return null;
 
   const isShutdown = klippy === 'shutdown' || klippy === 'error';
+  // A printer on a switched-off smart plug looks exactly like a dead MCU.
+  const switchedOff = powerDevices.filter((d) => d.status === 'off');
   return (
     <div className="border-b border-danger/30 bg-danger/10 px-4 py-2.5 text-sm text-danger-ink">
       <div className="flex items-center gap-3">
@@ -57,6 +62,16 @@ export function ConnectionBanner() {
           )}
         </div>
       </div>
+      {switchedOff.length > 0 && (
+        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+          {switchedOff.map((device) => (
+            <Button key={device.device} size="sm" tone="ok" onClick={() => void togglePower(device)}>
+              <Power className="size-3.5" /> {prettyObjectName(device.device)} einschalten
+            </Button>
+          ))}
+          <span className="text-[11px] text-danger-ink/80">danach ggf. Firmware-Restart</span>
+        </div>
+      )}
       {isShutdown && (
         <div className="mt-2.5 flex gap-2">
           <Button size="sm" tone="accent" onClick={() => void sendGcode('FIRMWARE_RESTART')}>

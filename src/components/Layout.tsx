@@ -12,6 +12,7 @@ import {
   Terminal,
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
+import type { KlippyState } from '@/moonraker/types';
 import { usePrinterStore } from '@/store/printer';
 import { usePrintersStore } from '@/store/printers';
 import { useUiStore } from '@/store/ui';
@@ -30,6 +31,14 @@ const NAV = [
   { to: '/console', label: 'Konsole', icon: Terminal },
   { to: '/more', label: 'Mehr', icon: Ellipsis },
 ];
+
+const KLIPPY_LABELS: Record<KlippyState, string> = {
+  ready: 'bereit',
+  startup: 'startet',
+  shutdown: 'gestoppt',
+  error: 'Fehler',
+  disconnected: 'getrennt',
+};
 
 /** Pages reached through "Mehr" keep that tab highlighted. */
 const MORE_ROUTES = ['/more', '/calibrate', '/config', '/system', '/history', '/settings'];
@@ -54,9 +63,7 @@ export function Layout({ children }: { children: ReactNode }) {
     ? connection === 'connecting' || connection === 'reconnecting'
       ? 'verbinde'
       : 'offline'
-    : klippy === 'ready'
-      ? 'bereit'
-      : klippy;
+    : KLIPPY_LABELS[klippy];
 
   const onEmergencyStop = async () => {
     if (confirmDestructive) {

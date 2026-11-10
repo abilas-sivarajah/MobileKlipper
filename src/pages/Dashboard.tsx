@@ -9,6 +9,7 @@ import { getFilamentSensors, getHeaters, getSensors, type HeaterView } from '@/l
 import { defaultVisible } from '@/lib/palette';
 import { usePrinterStore } from '@/store/printer';
 import { useUiStore } from '@/store/ui';
+import { PowerCard } from '@/features/system/PowerCard';
 
 const RANGES = [5, 10, 20] as const;
 
@@ -81,6 +82,8 @@ export default function Dashboard() {
       </Card>
 
       <QuickActions />
+
+      <PowerCard compact />
 
       {filamentSensors.length > 0 && (
         <Card title="Filamentsensoren">

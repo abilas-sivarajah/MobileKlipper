@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import type { PowerDevice, ServerInfo } from '@/moonraker/types';
 import {
   joinPath,
   MoonrakerClient,
@@ -132,5 +133,46 @@ describe('url helpers', () => {
   it('passes the api key as a query param for img tags', () => {
     const authed = new MoonrakerClient({ baseUrl: 'http://printer.local:7125', apiKey: 'abc123' });
     expect(authed.fileUrl('gcodes', 'cube.gcode')).toContain('?apikey=abc123');
+  });
+});
+
+describe('client events', () => {
+  type Internals = {
+    initialize(): Promise<void>;
+    handleNotification(n: { method: string; params: unknown[] }): void;
+  };
+
+  it('reports server info even while Klipper is down', async () => {
+    // A printer on a switched-off smart plug: Moonraker is up, Klipper is not,
+    // and the app still needs the component list to offer the power switch.
+    const seen: ServerInfo[] = [];
+    const client = new MoonrakerClient(
+      { baseUrl: 'http://printer.local:7125' },
+      { onServerInfo: (info) => seen.push(info) },
+    );
+    const call = vi.fn().mockResolvedValue({
+      klippy_connected: true,
+      klippy_state: 'shutdown',
+      components: ['power'],
+    });
+    client.call = call as unknown as typeof client.call;
+    await (client as unknown as Internals).initialize();
+    expect(seen.map((i) => i.components)).toEqual([['power']]);
+    expect(client.klippy).toBe('shutdown');
+    // No object subscription while Klipper is down.
+    expect(call).toHaveBeenCalledTimes(1);
+  });
+
+  it('forwards power device changes', () => {
+    const devices: PowerDevice[] = [];
+    const client = new MoonrakerClient(
+      { baseUrl: 'http://printer.local:7125' },
+      { onPowerChanged: (d) => devices.push(d) },
+    );
+    (client as unknown as Internals).handleNotification({
+      method: 'notify_power_changed',
+      params: [{ device: 'printer', status: 'off', locked_while_printing: true }],
+    });
+    expect(devices).toEqual([{ device: 'printer', status: 'off', locked_while_printing: true }]);
   });
 });

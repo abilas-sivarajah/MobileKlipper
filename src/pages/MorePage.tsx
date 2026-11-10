@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { ChevronRight, History, Ruler, Settings, type LucideIcon } from 'lucide-react';
+import { ChevronRight, Cpu, FileCog, History, Ruler, Settings, type LucideIcon } from 'lucide-react';
+import { throttleWarnings } from '@/lib/system';
 import { Card } from '@/components/ui';
 import { usePrinterStore } from '@/store/printer';
 
@@ -13,6 +14,7 @@ interface Entry {
 
 export default function MorePage() {
   const savePending = usePrinterStore((s) => s.status.configfile?.save_config_pending === true);
+  const hostWarning = usePrinterStore((s) => throttleWarnings(s.procStats).some((w) => w.active));
 
   const entries: Entry[] = [
     {
@@ -21,6 +23,19 @@ export default function MorePage() {
       hint: 'Bettschrauben, Bed Mesh, Z-Offset, PID, Input Shaper',
       icon: Ruler,
       badge: savePending ? 'ungespeichert' : undefined,
+    },
+    {
+      to: '/config',
+      label: 'Konfiguration',
+      hint: 'printer.cfg & Co. bearbeiten, Logs herunterladen',
+      icon: FileCog,
+    },
+    {
+      to: '/system',
+      label: 'System & Strom',
+      hint: 'Steckdosen, Host-Zustand, Updates, Neustarts',
+      icon: Cpu,
+      badge: hostWarning ? 'Warnung' : undefined,
     },
     { to: '/history', label: 'Druckverlauf', hint: 'Vergangene Drucke und Statistik', icon: History },
     { to: '/settings', label: 'Einstellungen', hint: 'Drucker, Darstellung, Verhalten', icon: Settings },

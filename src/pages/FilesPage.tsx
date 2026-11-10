@@ -2,14 +2,20 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ChevronRight,
+  EllipsisVertical,
   FileCode2,
   Folder,
+  FolderPlus,
   History,
   Image as ImageIcon,
+  Pencil,
   RefreshCw,
   Search,
+  Trash2,
 } from 'lucide-react';
-import { Button, Card, EmptyState, SegmentedControl, Spinner, TextInput } from '@/components/ui';
+import { Button, Card, EmptyState, SegmentedControl, Sheet, Spinner, TextInput } from '@/components/ui';
+import { confirmAction, promptText } from '@/store/confirm';
+import { toast } from '@/store/toast';
 import { FileDetailSheet } from '@/features/files/FileDetailSheet';
 import { UploadButton } from '@/features/files/UploadButton';
 import { useDirectory } from '@/features/files/useDirectory';
@@ -32,9 +38,53 @@ export default function FilesPage() {
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortKey>('date');
   const [selected, setSelected] = useState<DirectoryFile | null>(null);
+  const [dirMenu, setDirMenu] = useState<string | null>(null);
   const { data, loading, error, reload } = useDirectory(path);
 
   const segments = path.split('/');
+
+  const run = async (action: () => Promise<unknown> | undefined, success: string) => {
+    try {
+      await action();
+      toast.success(success);
+      reload();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Aktion fehlgeschlagen');
+    }
+  };
+
+  const createFolder = async () => {
+    const name = await promptText({
+      title: 'Neuer Ordner',
+      input: { label: 'Name', placeholder: 'z. B. PLA' },
+      confirmLabel: 'Anlegen',
+      tone: 'accent',
+    });
+    if (name) await run(() => client?.createDirectory(`${path}/${name}`), `Ordner ${name} angelegt`);
+  };
+
+  const renameFolder = async (dirname: string) => {
+    setDirMenu(null);
+    const name = await promptText({
+      title: 'Ordner umbenennen',
+      input: { label: 'Neuer Name', initial: dirname },
+      confirmLabel: 'Umbenennen',
+      tone: 'accent',
+    });
+    if (name && name !== dirname) {
+      await run(() => client?.moveFile(`${path}/${dirname}`, `${path}/${name}`), 'Umbenannt');
+    }
+  };
+
+  const deleteFolder = async (dirname: string) => {
+    setDirMenu(null);
+    const ok = await confirmAction({
+      title: `Ordner ${dirname} löschen?`,
+      message: 'Der Ordner wird samt allen Dateien darin gelöscht.',
+      confirmLabel: 'Löschen',
+    });
+    if (ok) await run(() => client?.deleteDirectory(`${path}/${dirname}`, true), 'Ordner gelöscht');
+  };
 
   const files = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -72,31 +122,36 @@ export default function FilesPage() {
             />
           </div>
           <UploadButton path={path} onUploaded={reload} />
-          <Button size="sm" onClick={reload} aria-label="Aktualisieren">
-            <RefreshCw className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
-          </Button>
         </div>
 
         <div className="space-y-2 px-3 py-2">
-          <nav className="flex items-center gap-1 overflow-x-auto no-scrollbar text-xs">
-            {segments.map((segment, index) => {
-              const target = segments.slice(0, index + 1).join('/');
-              const isLast = index === segments.length - 1;
-              return (
-                <span key={target} className="flex shrink-0 items-center gap-1">
-                  {index > 0 && <ChevronRight className="size-3 text-muted" />}
-                  <button
-                    type="button"
-                    disabled={isLast}
-                    onClick={() => setPath(target)}
-                    className={isLast ? 'text-ink' : 'text-accent'}
-                  >
-                    {index === 0 ? 'G-Code' : segment}
-                  </button>
-                </span>
-              );
-            })}
-          </nav>
+          <div className="flex items-center gap-2">
+            <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto no-scrollbar text-xs">
+              {segments.map((segment, index) => {
+                const target = segments.slice(0, index + 1).join('/');
+                const isLast = index === segments.length - 1;
+                return (
+                  <span key={target} className="flex shrink-0 items-center gap-1">
+                    {index > 0 && <ChevronRight className="size-3 text-muted" />}
+                    <button
+                      type="button"
+                      disabled={isLast}
+                      onClick={() => setPath(target)}
+                      className={isLast ? 'text-ink' : 'text-accent'}
+                    >
+                      {index === 0 ? 'G-Code' : segment}
+                    </button>
+                  </span>
+                );
+              })}
+            </nav>
+            <Button size="sm" tone="ghost" onClick={() => void createFolder()} aria-label="Neuer Ordner">
+              <FolderPlus className="size-4" />
+            </Button>
+            <Button size="sm" tone="ghost" onClick={reload} aria-label="Aktualisieren">
+              <RefreshCw className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
           <SegmentedControl
             options={SORTS}
             value={sort}
@@ -126,15 +181,23 @@ export default function FilesPage() {
         ) : (
           <ul className="divide-y divide-line">
             {data?.dirs.map((dir) => (
-              <li key={dir.dirname}>
+              <li key={dir.dirname} className="flex items-center">
                 <button
                   type="button"
                   onClick={() => setPath(`${path}/${dir.dirname}`)}
-                  className="flex w-full items-center gap-3 px-3 py-3 text-left active:bg-elevated"
+                  className="flex min-w-0 flex-1 items-center gap-3 px-3 py-3 text-left active:bg-elevated"
                 >
                   <Folder className="size-5 shrink-0 text-accent" />
                   <span className="flex-1 truncate text-sm">{dir.dirname}</span>
                   <ChevronRight className="size-4 text-muted" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDirMenu(dir.dirname)}
+                  aria-label={`${dir.dirname} bearbeiten`}
+                  className="px-3 py-3 text-muted"
+                >
+                  <EllipsisVertical className="size-4" />
                 </button>
               </li>
             ))}
@@ -190,6 +253,17 @@ export default function FilesPage() {
           </span>
         )}
       </div>
+
+      <Sheet open={dirMenu != null} title={dirMenu ?? ''} onClose={() => setDirMenu(null)}>
+        <div className="grid gap-2">
+          <Button onClick={() => dirMenu && void renameFolder(dirMenu)}>
+            <Pencil className="size-4" /> Umbenennen
+          </Button>
+          <Button tone="danger" onClick={() => dirMenu && void deleteFolder(dirMenu)}>
+            <Trash2 className="size-4" /> Löschen
+          </Button>
+        </div>
+      </Sheet>
 
       <FileDetailSheet
         file={selected}

@@ -8,6 +8,7 @@ import { usePrinterStore } from '@/store/printer';
 import { usePrintersStore } from '@/store/printers';
 import { useUiStore } from '@/store/ui';
 import { useWakeLock } from '@/lib/hooks';
+import { usePrinterNotifications } from '@/lib/useNotifications';
 import { isPrinting } from '@/lib/derive';
 import Dashboard from '@/pages/Dashboard';
 import Control from '@/pages/Control';
@@ -18,6 +19,8 @@ import SettingsPage from '@/pages/SettingsPage';
 import HistoryPage from '@/pages/HistoryPage';
 import CalibratePage from '@/pages/CalibratePage';
 import MorePage from '@/pages/MorePage';
+import ConfigPage from '@/pages/ConfigPage';
+import SystemPage from '@/pages/SystemPage';
 
 export default function App() {
   const printers = usePrintersStore((s) => s.printers);
@@ -39,16 +42,19 @@ export default function App() {
 
   useEffect(() => {
     const root = document.documentElement;
-    const resolved =
-      theme === 'system'
-        ? window.matchMedia('(prefers-color-scheme: light)').matches
-          ? 'light'
-          : 'dark'
-        : theme;
-    root.dataset.theme = resolved;
+    const media = window.matchMedia('(prefers-color-scheme: light)');
+    const apply = () => {
+      root.dataset.theme = theme === 'system' ? (media.matches ? 'light' : 'dark') : theme;
+    };
+    apply();
+    if (theme !== 'system') return;
+    // Follow the OS switching between light and dark while the app is open.
+    media.addEventListener('change', apply);
+    return () => media.removeEventListener('change', apply);
   }, [theme]);
 
   useWakeLock(keepAwake && printing);
+  usePrinterNotifications();
 
   if (!printers.length) {
     return (
@@ -72,6 +78,8 @@ export default function App() {
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/calibrate" element={<CalibratePage />} />
           <Route path="/more" element={<MorePage />} />
+          <Route path="/config" element={<ConfigPage />} />
+          <Route path="/system" element={<SystemPage />} />
           <Route path="/settings/*" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
