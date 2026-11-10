@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
-import { FileX2, Image as ImageIcon, Pause, Play, Printer, Repeat, RotateCcw, Square } from 'lucide-react';
+import { Boxes, FileX2, Image as ImageIcon, Pause, Play, Printer, Repeat, RotateCcw, Square } from 'lucide-react';
 import { FilamentSheet } from '@/features/control/FilamentSheet';
+import { ExcludeObjectsSheet } from './ExcludeObjectsSheet';
 import { Button, Card, ProgressBar, Row } from '@/components/ui';
 import { usePrinterStore } from '@/store/printer';
 import { useUiStore } from '@/store/ui';
@@ -9,6 +10,7 @@ import { toast } from '@/store/toast';
 import {
   getEtaEstimates,
   getFilamentUsage,
+  getPrintObjects,
   getLayerInfo,
   getPrintState,
   getProgress,
@@ -33,6 +35,7 @@ export function PrintStatusCard() {
   const remainingSources = useUiStore((s) => s.remainingSources);
   const etaSources = useUiStore((s) => s.etaSources);
   const [filamentOpen, setFilamentOpen] = useState(false);
+  const [objectsOpen, setObjectsOpen] = useState(false);
   useTicker(1000);
 
   const state = getPrintState(status);
@@ -93,6 +96,8 @@ export function PrintStatusCard() {
   }
 
   const finished = state === 'complete' || state === 'cancelled' || state === 'error';
+  const objects = getPrintObjects(status);
+  const excludedCount = objects.filter((o) => o.excluded).length;
   const printDuration = status.print_stats?.print_duration ?? 0;
   const totalDuration = status.print_stats?.total_duration ?? 0;
   const filamentUsed = status.print_stats?.filament_used ?? 0;
@@ -168,6 +173,14 @@ export function PrintStatusCard() {
             <Button block onClick={() => void act('pause', 'Druck pausiert')}>
               <Pause className="size-4" /> Pause
             </Button>
+            {objects.length > 1 && (
+              <Button onClick={() => setObjectsOpen(true)} aria-label="Objekte ausschließen">
+                <Boxes className="size-4" />
+                <span className="tabular text-xs">
+                  {objects.length - excludedCount}/{objects.length}
+                </span>
+              </Button>
+            )}
             <Button block tone="danger" onClick={() => void act('cancel', 'Druck abgebrochen', true)}>
               <Square className="size-4" /> Stopp
             </Button>
@@ -181,6 +194,11 @@ export function PrintStatusCard() {
             <Button onClick={() => setFilamentOpen(true)} aria-label="Filament wechseln">
               <Repeat className="size-4" />
             </Button>
+            {objects.length > 1 && (
+              <Button onClick={() => setObjectsOpen(true)} aria-label="Objekte ausschließen">
+                <Boxes className="size-4" />
+              </Button>
+            )}
             <Button block tone="danger" onClick={() => void act('cancel', 'Druck abgebrochen', true)}>
               <Square className="size-4" /> Stopp
             </Button>
@@ -225,6 +243,7 @@ export function PrintStatusCard() {
       </div>
 
       <FilamentSheet open={filamentOpen} onClose={() => setFilamentOpen(false)} />
+      <ExcludeObjectsSheet open={objectsOpen} onClose={() => setObjectsOpen(false)} />
     </Card>
   );
 }

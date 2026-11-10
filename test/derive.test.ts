@@ -11,6 +11,7 @@ import {
   getLayerInfo,
   getMacros,
   getOutputPins,
+  getPrintObjects,
   getProgress,
   getSensors,
   isPrinting,
@@ -316,5 +317,30 @@ describe('segmented bed naming', () => {
       'heater_generic chamber': { temperature: 30, target: 0 },
     });
     expect(heaters.map((h) => h.name)).toEqual(['Heizbett', 'Heizbett außen', 'Heizbett 1', 'Chamber']);
+  });
+});
+
+describe('getPrintObjects', () => {
+  it('marks excluded and current objects', () => {
+    const objects = getPrintObjects({
+      exclude_object: {
+        objects: [
+          { name: 'A', center: [10, 20], polygon: [[0, 0], [20, 0], [20, 40]] },
+          { name: 'B', center: [50, 50] },
+          { name: 'C' },
+        ],
+        excluded_objects: ['B'],
+        current_object: 'A',
+      },
+    });
+    expect(objects).toEqual([
+      { name: 'A', center: [10, 20], polygon: [[0, 0], [20, 0], [20, 40]], excluded: false, current: true },
+      { name: 'B', center: [50, 50], polygon: [], excluded: true, current: false },
+      { name: 'C', center: null, polygon: [], excluded: false, current: false },
+    ]);
+  });
+
+  it('is empty without exclude_object', () => {
+    expect(getPrintObjects({})).toEqual([]);
   });
 });

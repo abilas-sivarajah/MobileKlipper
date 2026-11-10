@@ -457,3 +457,27 @@ export function getFilamentSensors(
 function clamp01(v: number): number {
   return Math.min(1, Math.max(0, v));
 }
+
+export interface PrintObjectView {
+  name: string;
+  center: [number, number] | null;
+  polygon: Array<[number, number]>;
+  excluded: boolean;
+  current: boolean;
+}
+
+/** Objects of the running print that [exclude_object] can cancel one by one. */
+export function getPrintObjects(status: PrinterStatus): PrintObjectView[] {
+  const eo = status.exclude_object;
+  if (!eo?.objects?.length) return [];
+  const excluded = new Set(eo.excluded_objects ?? []);
+  const point = (p: unknown): [number, number] | null =>
+    Array.isArray(p) && typeof p[0] === 'number' && typeof p[1] === 'number' ? [p[0], p[1]] : null;
+  return eo.objects.map((obj) => ({
+    name: obj.name,
+    center: point(obj.center),
+    polygon: (obj.polygon ?? []).map(point).filter((p): p is [number, number] => p != null),
+    excluded: excluded.has(obj.name),
+    current: eo.current_object === obj.name,
+  }));
+}
