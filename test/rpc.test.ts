@@ -83,6 +83,25 @@ describe('RpcConnection', () => {
     await assertion;
   });
 
+  it('lets a single call wait longer than the default timeout', async () => {
+    // G28 on a 5 mm/s Z axis or a PID tune easily outlasts the default.
+    const { rpc } = connect({ timeoutMs: 5000 });
+    FakeSocket.last.open();
+    const pending = rpc.call('printer.gcode.script', { script: 'G28' }, { timeoutMs: 0 });
+    const request = FakeSocket.last.lastRequest();
+    vi.advanceTimersByTime(10 * 60 * 1000);
+    FakeSocket.last.receive({ jsonrpc: '2.0', id: request.id, result: 'ok' });
+    await expect(pending).resolves.toBe('ok');
+  });
+
+  it('still rejects an untimed call when the socket drops', async () => {
+    const { rpc } = connect({ timeoutMs: 5000 });
+    FakeSocket.last.open();
+    const pending = rpc.call('printer.gcode.script', { script: 'G28' }, { timeoutMs: 0 });
+    FakeSocket.last.close(1006, "gone");
+    await expect(pending).rejects.toThrow();
+  });
+
   it('dispatches notifications without an id', () => {
     const { notifications } = connect();
     FakeSocket.last.open();

@@ -22,6 +22,9 @@ import type {
 
 export type FileRoot = 'gcodes' | 'config' | 'logs' | 'timelapse';
 
+/** Long enough for a PID tune or a fine bed mesh, short enough to not leak forever. */
+export const GCODE_TIMEOUT_MS = 60 * 60 * 1000;
+
 export interface MoonrakerEndpoint {
   /** Base HTTP URL without trailing slash, e.g. http://printer.local:7125 */
   baseUrl: string;
@@ -300,9 +303,13 @@ export class MoonrakerClient {
 
   // --- raw call ---------------------------------------------------------
 
-  async call<T = unknown>(method: string, params?: unknown): Promise<T> {
+  async call<T = unknown>(
+    method: string,
+    params?: unknown,
+    options?: { timeoutMs?: number },
+  ): Promise<T> {
     if (!this.rpc) throw new RpcError('Client not connected', -32000, method);
-    return this.rpc.call<T>(method, params);
+    return this.rpc.call<T>(method, params, options);
   }
 
   // --- server / printer -------------------------------------------------
@@ -322,8 +329,13 @@ export class MoonrakerClient {
     return this.call('printer.objects.query', { objects });
   }
 
+  /**
+   * Moonraker answers a gcode script only once Klipper has worked through it,
+   * so G28 on a slow Z axis, BED_MESH_CALIBRATE or PID_CALIBRATE legitimately
+   * take minutes. A dropped connection still rejects the call.
+   */
   gcode(script: string): Promise<string> {
-    return this.call<string>('printer.gcode.script', { script });
+    return this.call<string>('printer.gcode.script', { script }, { timeoutMs: GCODE_TIMEOUT_MS });
   }
 
   emergencyStop(): Promise<string> {

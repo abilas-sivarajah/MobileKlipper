@@ -6,6 +6,7 @@ import { useActivePrinter } from '@/store/printers';
 import { extrude } from '@/lib/gcode';
 import { getHeaters } from '@/lib/derive';
 import { toast } from '@/store/toast';
+import { useCapabilities } from '@/lib/useCapabilities';
 
 export function ExtrudeCard() {
   const printer = useActivePrinter();
@@ -14,6 +15,7 @@ export function ExtrudeCard() {
   const lengths = printer?.extrudeLengths ?? [5, 10, 25, 50];
   const [length, setLength] = useState<number>(lengths[1] ?? 10);
   const feedrate = printer?.extrudeFeedrate ?? 5;
+  const caps = useCapabilities();
 
   const extruder = getHeaters(status).find((h) => h.kind === 'extruder');
   // Klipper refuses extrusion below min_extrude_temp; say so instead of failing.
@@ -24,7 +26,7 @@ export function ExtrudeCard() {
       toast.warning('Extruder ist zu kalt – erst aufheizen');
       return;
     }
-    void sendGcode(extrude(length * direction, feedrate));
+    void sendGcode(extrude(length * direction, feedrate, caps.maxExtrudeOnlyDistance));
   };
 
   return (

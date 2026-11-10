@@ -4,6 +4,7 @@ import { Button, Sheet, TextInput } from '@/components/ui';
 import type { HeaterView } from '@/lib/derive';
 import { usePrinterStore } from '@/store/printer';
 import { useActivePrinter } from '@/store/printers';
+import { setHeaterTarget } from '@/lib/gcode';
 
 /** Sets a heater's target; works for extruders, the bed and generic heaters. */
 export function TempTargetSheet({
@@ -25,9 +26,7 @@ export function TempTargetSheet({
 
   const apply = async (target: number) => {
     const clamped = Math.min(heater.maxTemp, Math.max(0, Math.round(target)));
-    const ok = await sendGcode(
-      `SET_HEATER_TEMPERATURE HEATER=${heater.key} TARGET=${clamped}`,
-    );
+    const ok = await sendGcode(setHeaterTarget(heater.key, clamped));
     if (ok) onClose();
   };
 

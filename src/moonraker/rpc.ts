@@ -123,7 +123,15 @@ export class RpcConnection {
     this.setState('closed', reason);
   }
 
-  async call<T = unknown>(method: string, params?: unknown): Promise<T> {
+  /**
+   * `timeoutMs` overrides the connection default for this one call; 0 waits
+   * until the response or the connection drops, whichever comes first.
+   */
+  async call<T = unknown>(
+    method: string,
+    params?: unknown,
+    options: { timeoutMs?: number } = {},
+  ): Promise<T> {
     if (!this.isOpen || !this.socket) {
       throw new RpcError('Not connected to Moonraker', -32000, method);
     }
@@ -131,11 +139,15 @@ export class RpcConnection {
     const payload: Record<string, unknown> = { jsonrpc: '2.0', method, id };
     if (params !== undefined) payload.params = params;
 
+    const timeoutMs = options.timeoutMs ?? this.opts.timeoutMs ?? 15_000;
     return new Promise<T>((resolve, reject) => {
-      const timer = this.setTimeoutFn(() => {
-        this.pending.delete(id);
-        reject(new RpcError(`Timeout waiting for "${method}"`, -32001, method));
-      }, this.opts.timeoutMs ?? 15_000);
+      const timer =
+        timeoutMs > 0
+          ? this.setTimeoutFn(() => {
+              this.pending.delete(id);
+              reject(new RpcError(`Timeout waiting for "${method}"`, -32001, method));
+            }, timeoutMs)
+          : null;
 
       this.pending.set(id, {
         method,
@@ -148,7 +160,7 @@ export class RpcConnection {
         this.socket!.send(JSON.stringify(payload));
       } catch (err) {
         this.pending.delete(id);
-        this.clearTimeoutFn(timer);
+        if (timer != null) this.clearTimeoutFn(timer);
         reject(err instanceof Error ? err : new Error(String(err)));
       }
     });
@@ -235,7 +247,7 @@ export class RpcConnection {
     const pending = this.pending.get(id);
     if (!pending) return;
     this.pending.delete(id);
-    this.clearTimeoutFn(pending.timer);
+    if (pending.timer != null) this.clearTimeoutFn(pending.timer);
     const errField = rec.error;
     if (errField && typeof errField === 'object') {
       const e = errField as { code?: number; message?: string };
@@ -285,7 +297,7 @@ export class RpcConnection {
 
   private failAllPending(err: Error): void {
     for (const [, pending] of this.pending) {
-      this.clearTimeoutFn(pending.timer);
+      if (pending.timer != null) this.clearTimeoutFn(pending.timer);
       pending.reject(err);
     }
     this.pending.clear();

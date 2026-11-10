@@ -5,6 +5,7 @@ import { usePrinterStore, type ConsoleLine } from '@/store/printer';
 import { useUiStore } from '@/store/ui';
 import { completionsFor, isTemperatureReply } from '@/lib/console';
 import { getMacros } from '@/lib/derive';
+import { loadConsoleHistory, pushConsoleHistory } from '@/lib/consoleHistory';
 
 const KIND_CLASS: Record<ConsoleLine['kind'], string> = {
   command: 'text-accent',
@@ -20,11 +21,17 @@ export default function ConsolePage() {
   const status = usePrinterStore((s) => s.status);
   const hideTemps = useUiStore((s) => s.hideTemperatureReplies);
   const toggle = useUiStore((s) => s.toggle);
+  const printerId = usePrinterStore((s) => s.printerId);
 
   const [input, setInput] = useState('');
-  const [history, setHistory] = useState<string[]>([]);
+  const [history, setHistory] = useState<string[]>(() => loadConsoleHistory(printerId));
   const [historyIndex, setHistoryIndex] = useState(-1);
   const logRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setHistory(loadConsoleHistory(printerId));
+    setHistoryIndex(-1);
+  }, [printerId]);
   const atBottomRef = useRef(true);
 
   const macros = useMemo(() => getMacros(status, true).map((m) => m.name), [status]);
@@ -46,7 +53,7 @@ export default function ConsolePage() {
     const command = input.trim();
     if (!command) return;
     setInput('');
-    setHistory((h) => [command, ...h.filter((c) => c !== command)].slice(0, 50));
+    setHistory(pushConsoleHistory(printerId, command));
     setHistoryIndex(-1);
     await sendGcode(command);
   };

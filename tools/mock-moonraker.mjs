@@ -328,8 +328,13 @@ const handlers = {
 function applyGcode(script) {
   const upper = script.toUpperCase();
   let reply = null;
+  // Klipper addresses heaters by the last word of their section name.
   const heater = /SET_HEATER_TEMPERATURE\s+HEATER=(\S+)\s+TARGET=([\d.]+)/i.exec(script);
-  if (heater && state.heaters[heater[1]]) state.heaters[heater[1]].target = Number(heater[2]);
+  if (heater) {
+    const key = Object.keys(state.heaters).find((k) => k.split(' ').pop() === heater[1]);
+    if (key) state.heaters[key].target = Number(heater[2]);
+    else reply = `!! Unknown heater "${heater[1]}"`;
+  }
   if (/^M104/.test(upper)) {
     const s = /S([\d.]+)/i.exec(script);
     if (s) state.heaters.extruder.target = Number(s[1]);
