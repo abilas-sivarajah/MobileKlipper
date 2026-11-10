@@ -259,3 +259,36 @@ export function Sheet({
     </div>
   );
 }
+
+/** iOS-style on/off switch; the label is for screen readers. */
+export function Switch({
+  checked,
+  onChange,
+  label,
+  disabled = false,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  label: string;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      onClick={onChange}
+      className={`h-6 w-11 shrink-0 rounded-full transition disabled:opacity-40 ${
+        checked ? 'bg-accent' : 'bg-elevated'
+      }`}
+    >
+      <span
+        className={`block size-5 rounded-full bg-white shadow-sm transition ${
+          checked ? 'translate-x-5.5' : 'translate-x-0.5'
+        }`}
+      />
+    </button>
+  );
+}

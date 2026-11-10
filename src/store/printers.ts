@@ -2,14 +2,14 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { normalizeBaseUrl } from '@/moonraker/client';
+import {
+  profileDefaults,
+  type FilamentSettings,
+  type PrinterModel,
+  type TempPreset,
+} from '@/lib/profiles';
 
-export interface TempPreset {
-  id: string;
-  name: string;
-  extruder: number;
-  bed: number;
-  chamber?: number;
-}
+export type { FilamentSettings, PrinterModel, TempPreset };
 
 export interface PrinterConfig {
   id: string;
@@ -20,6 +20,8 @@ export interface PrinterConfig {
   token?: string;
   /** Overrides the webcam Moonraker reports, for reverse-proxy setups. */
   webcamUrlOverride?: string;
+  /** Which profile seeded the defaults; also selects model-specific tips. */
+  model: PrinterModel;
   moveSteps: number[];
   babyStepSizes: number[];
   extrudeLengths: number[];
@@ -29,33 +31,31 @@ export interface PrinterConfig {
   invertJogX: boolean;
   invertJogY: boolean;
   tempPresets: TempPreset[];
+  filament: FilamentSettings;
   /** Macros pinned to the dashboard, by macro name. */
   favoriteMacros: string[];
 }
 
 export const DEFAULT_PRINTER: Omit<PrinterConfig, 'id' | 'name' | 'baseUrl'> = {
-  moveSteps: [0.1, 1, 10, 50],
-  babyStepSizes: [0.005, 0.01, 0.05, 0.1],
-  extrudeLengths: [5, 10, 25, 50],
-  extrudeFeedrate: 5,
-  feedrateXY: 100,
-  feedrateZ: 25,
+  model: 'generic',
   invertJogX: false,
   invertJogY: false,
-  tempPresets: [
-    { id: 'pla', name: 'PLA', extruder: 210, bed: 60 },
-    { id: 'petg', name: 'PETG', extruder: 240, bed: 80 },
-    { id: 'abs', name: 'ABS', extruder: 255, bed: 100 },
-    { id: 'tpu', name: 'TPU', extruder: 225, bed: 50 },
-  ],
   favoriteMacros: [],
+  ...profileDefaults('generic'),
 };
 
 export interface PrintersState {
   printers: PrinterConfig[];
   activeId: string | null;
-  addPrinter: (input: { name: string; baseUrl: string; apiKey?: string }) => PrinterConfig;
+  addPrinter: (input: {
+    name: string;
+    baseUrl: string;
+    apiKey?: string;
+    model?: PrinterModel;
+  }) => PrinterConfig;
   updatePrinter: (id: string, patch: Partial<PrinterConfig>) => void;
+  /** Resets steps, speeds, presets and filament path to a model's defaults. */
+  applyProfile: (id: string, model: PrinterModel) => void;
   removePrinter: (id: string) => void;
   setActive: (id: string) => void;
   toggleFavoriteMacro: (id: string, macro: string) => void;
@@ -71,14 +71,15 @@ export const usePrintersStore = create<PrintersState>()(
       printers: [],
       activeId: null,
 
-      addPrinter: ({ name, baseUrl, apiKey }) => {
+      addPrinter: ({ name, baseUrl, apiKey, model = 'generic' }) => {
         const printer: PrinterConfig = {
           ...DEFAULT_PRINTER,
+          ...profileDefaults(model),
+          model,
           id: makeId(),
           name: name.trim() || 'Drucker',
           baseUrl: normalizeBaseUrl(baseUrl),
           ...(apiKey?.trim() ? { apiKey: apiKey.trim() } : {}),
-          tempPresets: DEFAULT_PRINTER.tempPresets.map((p) => ({ ...p })),
         };
         set((state) => ({
           printers: [...state.printers, printer],
@@ -93,6 +94,13 @@ export const usePrintersStore = create<PrintersState>()(
             p.id === id
               ? { ...p, ...patch, baseUrl: patch.baseUrl ? normalizeBaseUrl(patch.baseUrl) : p.baseUrl }
               : p,
+          ),
+        })),
+
+      applyProfile: (id, model) =>
+        set((state) => ({
+          printers: state.printers.map((p) =>
+            p.id === id ? { ...p, ...profileDefaults(model), model } : p,
           ),
         })),
 
@@ -132,7 +140,12 @@ export const usePrintersStore = create<PrintersState>()(
         return {
           ...current,
           ...state,
-          printers: state.printers.map((p) => ({ ...DEFAULT_PRINTER, ...p })),
+          printers: state.printers.map((p) => ({
+            ...DEFAULT_PRINTER,
+            ...p,
+            // Nested settings added later need their own backfill.
+            filament: { ...DEFAULT_PRINTER.filament, ...(p.filament ?? {}) },
+          })),
         };
       },
     },

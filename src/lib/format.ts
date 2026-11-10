@@ -104,3 +104,25 @@ export function formatProgressPercent(fraction: number | undefined | null): stri
   if (fraction == null || !Number.isFinite(fraction)) return '--';
   return `${Math.floor(Math.min(1, Math.max(0, fraction)) * 100)}%`;
 }
+
+/**
+ * Parses a user-typed list of positive numbers into a sorted, de-duplicated
+ * list. Separators are semicolons and whitespace; a comma also separates when
+ * a value already uses a dot ("0.1,1,10") and is otherwise read as a German
+ * decimal comma ("0,05; 0,1").
+ */
+export function parseNumberList(input: string): number[] {
+  const values = new Set<number>();
+  for (const token of input.split(/[;\s]+/)) {
+    if (!token) continue;
+    const commas = token.split(',').length - 1;
+    const parts =
+      token.includes('.') || commas > 1 ? token.split(',') : [token.replace(',', '.')];
+    for (const part of parts) {
+      if (!part) continue;
+      const value = Number(part);
+      if (Number.isFinite(value) && value > 0) values.add(value);
+    }
+  }
+  return [...values].sort((a, b) => a - b);
+}

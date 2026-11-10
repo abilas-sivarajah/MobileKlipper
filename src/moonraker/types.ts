@@ -213,6 +213,9 @@ export interface DirectoryFile {
   nozzle_diameter?: number;
   filament_name?: string;
   filament_type?: string;
+  first_layer_extr_temp?: number;
+  first_layer_bed_temp?: number;
+  chamber_temp?: number;
 }
 
 export interface DirectoryDir {

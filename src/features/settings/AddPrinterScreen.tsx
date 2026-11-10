@@ -3,6 +3,8 @@ import { CheckCircle2, CircleAlert, Printer } from 'lucide-react';
 import { probeMoonraker, type ProbeResult } from '@/lib/probe';
 import { usePrintersStore } from '@/store/printers';
 import { Button, Card, Field, Spinner, TextInput } from '@/components/ui';
+import type { PrinterModel } from '@/lib/profiles';
+import { ModelPicker } from './ModelPicker';
 
 /** Used both for onboarding and for adding further printers later. */
 export function AddPrinterScreen({ onDone }: { onDone?: () => void }) {
@@ -11,6 +13,7 @@ export function AddPrinterScreen({ onDone }: { onDone?: () => void }) {
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
+  const [model, setModel] = useState<PrinterModel>('generic');
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ProbeResult | null>(null);
 
@@ -26,6 +29,7 @@ export function AddPrinterScreen({ onDone }: { onDone?: () => void }) {
     const printer = addPrinter({
       name: name || hostnameOf(url),
       baseUrl: url,
+      model,
       ...(apiKey ? { apiKey } : {}),
     });
     setActive(printer.id);
@@ -62,9 +66,17 @@ export function AddPrinterScreen({ onDone }: { onDone?: () => void }) {
             <TextInput
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Voron 2.4"
+              placeholder="Ender 3 V2"
             />
           </Field>
+          <div>
+            <span className="mb-1 block text-xs font-medium text-muted">Modell</span>
+            <ModelPicker value={model} onChange={setModel} />
+            <span className="mt-1 block text-[11px] text-muted">
+              Setzt passende Startwerte (Tempo, Presets, Filamentweg). Was der Drucker kann, liest die
+              App aus seiner Konfiguration.
+            </span>
+          </div>
           <Field label="API-Key" hint="Nur nötig, wenn Moonraker Authentifizierung verlangt.">
             <TextInput
               value={apiKey}

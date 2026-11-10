@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Printer, Trash2 } from 'lucide-react';
+import { Flame, Printer, Trash2 } from 'lucide-react';
+import { PreheatSheet } from '@/features/dashboard/PreheatSheet';
+import { metadataTemps } from '@/lib/preheat';
 import { Button, Row, Sheet, Spinner } from '@/components/ui';
 import type { DirectoryFile } from '@/moonraker/types';
 import { usePrinterStore } from '@/store/printer';
@@ -30,6 +32,7 @@ export function FileDetailSheet({
   const client = usePrinterStore((s) => s.client);
   const printing = usePrinterStore((s) => isPrinting(s.status));
   const [busy, setBusy] = useState(false);
+  const [preheatOpen, setPreheatOpen] = useState(false);
 
   const relativePath = file
     ? path === 'gcodes'
@@ -58,6 +61,7 @@ export function FileDetailSheet({
   if (!file) return null;
 
   const info = detail ?? file;
+  const fileTemps = metadataTemps(info);
   const thumbnail = info.thumbnails?.length
     ? client?.thumbnailUrl(
         relativePath,
@@ -125,7 +129,20 @@ export function FileDetailSheet({
         <Row label="Geändert" value={formatDateTime(info.modified)} />
         <Row label="Druckzeit (Slicer)" value={formatDuration(info.estimated_time, true)} />
         <Row label="Filament" value={formatLength(info.filament_total)} />
-        <Row label="Gewicht" value={filamentGrams(info.filament_total)} />
+        <Row
+          label="Gewicht"
+          value={
+            info.filament_weight_total
+              ? `${info.filament_weight_total.toFixed(1)} g`
+              : `ca. ${filamentGrams(info.filament_total)}`
+          }
+        />
+        {fileTemps && (
+          <Row
+            label="Erste Schicht"
+            value={`${fileTemps.extruder ?? '--'}° / ${fileTemps.bed ?? '--'}°`}
+          />
+        )}
         <Row label="Höhe" value={info.object_height ? `${info.object_height} mm` : '--'} />
         <Row
           label="Schichthöhe"
@@ -139,10 +156,19 @@ export function FileDetailSheet({
         <Button tone="danger" onClick={() => void remove()} disabled={busy} aria-label="Löschen">
           <Trash2 className="size-4" />
         </Button>
+        <Button onClick={() => setPreheatOpen(true)} disabled={printing} aria-label="Vorheizen">
+          <Flame className="size-4" />
+        </Button>
         <Button block tone="accent" onClick={() => void startPrint()} disabled={busy || printing}>
           {busy ? <Spinner /> : <Printer className="size-4" />} Drucken
         </Button>
       </div>
+      <PreheatSheet
+        open={preheatOpen}
+        onClose={() => setPreheatOpen(false)}
+        fileTemps={fileTemps}
+        fileLabel="Wie in Datei"
+      />
     </Sheet>
   );
 }

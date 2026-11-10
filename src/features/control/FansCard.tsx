@@ -1,5 +1,5 @@
 import { Fan, Lightbulb } from 'lucide-react';
-import { Card } from '@/components/ui';
+import { Card, Switch } from '@/components/ui';
 import { usePrinterStore } from '@/store/printer';
 import { getFans, getOutputPins } from '@/lib/derive';
 import { setFanSpeed, setOutputPin } from '@/lib/gcode';
@@ -61,20 +61,11 @@ export function FansCard() {
               <Lightbulb className={`size-3.5 ${pin.value > 0 ? 'text-warn-ink' : ''}`} />
               {pin.name}
             </span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={pin.value > 0}
-              aria-label={pin.name}
-              onClick={() => void sendGcode(setOutputPin(pin.key, pin.value > 0 ? 0 : 1))}
-              className={`h-6 w-11 rounded-full transition ${pin.value > 0 ? 'bg-accent' : 'bg-elevated'}`}
-            >
-              <span
-                className={`block size-5 rounded-full bg-white shadow-sm transition ${
-                  pin.value > 0 ? 'translate-x-5.5' : 'translate-x-0.5'
-                }`}
-              />
-            </button>
+            <Switch
+              checked={pin.value > 0}
+              label={pin.name}
+              onChange={() => void sendGcode(setOutputPin(pin.key, pin.value > 0 ? 0 : 1))}
+            />
           </div>
         ),
       )}

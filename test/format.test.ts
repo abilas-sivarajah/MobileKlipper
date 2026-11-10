@@ -10,6 +10,7 @@ import {
   formatTemp,
   prettyObjectName,
   stripGcodeExtension,
+  parseNumberList,
 } from '@/lib/format';
 
 describe('formatDuration', () => {
@@ -89,5 +90,26 @@ describe('names', () => {
   it('turns klipper object names into labels', () => {
     expect(prettyObjectName('temperature_sensor raspberry_pi')).toBe('Raspberry Pi');
     expect(prettyObjectName('heater_bed')).toBe('Heater Bed');
+  });
+});
+
+describe('parseNumberList', () => {
+  it('reads semicolon and space separated lists', () => {
+    expect(parseNumberList('0.1; 1; 10; 50')).toEqual([0.1, 1, 10, 50]);
+    expect(parseNumberList('50 10 1')).toEqual([1, 10, 50]);
+  });
+
+  it('accepts the old comma-separated format', () => {
+    expect(parseNumberList('0.1, 1, 10, 50')).toEqual([0.1, 1, 10, 50]);
+    expect(parseNumberList('0.1,1,10')).toEqual([0.1, 1, 10]);
+  });
+
+  it('reads German decimal commas', () => {
+    expect(parseNumberList('0,005; 0,01; 0,05')).toEqual([0.005, 0.01, 0.05]);
+  });
+
+  it('drops junk, non-positive values and duplicates', () => {
+    expect(parseNumberList('abc; -1; 0; 5; 5')).toEqual([5]);
+    expect(parseNumberList('')).toEqual([]);
   });
 });
