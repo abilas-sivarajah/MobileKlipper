@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, Repeat } from 'lucide-react';
+import { FilamentSheet } from './FilamentSheet';
 import { Button, Card, SegmentedControl } from '@/components/ui';
 import { usePrinterStore } from '@/store/printer';
 import { useActivePrinter } from '@/store/printers';
@@ -14,6 +15,7 @@ export function ExtrudeCard() {
   const status = usePrinterStore((s) => s.status);
   const lengths = printer?.extrudeLengths ?? [5, 10, 25, 50];
   const [length, setLength] = useState<number>(lengths[1] ?? 10);
+  const [wizardOpen, setWizardOpen] = useState(false);
   const feedrate = printer?.extrudeFeedrate ?? 5;
   const caps = useCapabilities();
 
@@ -30,7 +32,14 @@ export function ExtrudeCard() {
   };
 
   return (
-    <Card title="Extruder">
+    <Card
+      title="Extruder"
+      action={
+        <Button size="sm" onClick={() => setWizardOpen(true)}>
+          <Repeat className="size-3.5" /> Filament wechseln
+        </Button>
+      }
+    >
       <div className="flex gap-2">
         <Button block onClick={() => run(-1)} disabled={tooCold}>
           <ArrowUpFromLine className="size-4" /> Zurückziehen
@@ -53,7 +62,12 @@ export function ExtrudeCard() {
         {feedrate} mm/s
         {extruder ? ` · ${extruder.temperature.toFixed(1)}°C` : ''}
         {tooCold ? ' · zu kalt zum Extrudieren' : ''}
+        {length > caps.maxExtrudeOnlyDistance
+          ? ` · wird in Stücke ≤ ${caps.maxExtrudeOnlyDistance} mm geteilt`
+          : ''}
       </p>
+
+      <FilamentSheet open={wizardOpen} onClose={() => setWizardOpen(false)} />
     </Card>
   );
 }

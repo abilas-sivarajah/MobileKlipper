@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
-import { FileX2, Image as ImageIcon, Pause, Play, Printer, RotateCcw, Square } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { FileX2, Image as ImageIcon, Pause, Play, Printer, Repeat, RotateCcw, Square } from 'lucide-react';
+import { FilamentSheet } from '@/features/control/FilamentSheet';
 import { Button, Card, ProgressBar, Row } from '@/components/ui';
 import { usePrinterStore } from '@/store/printer';
 import { useUiStore } from '@/store/ui';
@@ -31,6 +32,7 @@ export function PrintStatusCard() {
   const progressSource = useUiStore((s) => s.progressSource);
   const remainingSources = useUiStore((s) => s.remainingSources);
   const etaSources = useUiStore((s) => s.etaSources);
+  const [filamentOpen, setFilamentOpen] = useState(false);
   useTicker(1000);
 
   const state = getPrintState(status);
@@ -176,6 +178,9 @@ export function PrintStatusCard() {
             <Button block tone="ok" onClick={() => void act('resume', 'Druck fortgesetzt')}>
               <Play className="size-4" /> Weiter
             </Button>
+            <Button onClick={() => setFilamentOpen(true)} aria-label="Filament wechseln">
+              <Repeat className="size-4" />
+            </Button>
             <Button block tone="danger" onClick={() => void act('cancel', 'Druck abgebrochen', true)}>
               <Square className="size-4" /> Stopp
             </Button>
@@ -218,6 +223,8 @@ export function PrintStatusCard() {
           {eta.slicer != null && ` · Slicer ${formatDuration(eta.slicer, true)}`}
         </span>
       </div>
+
+      <FilamentSheet open={filamentOpen} onClose={() => setFilamentOpen(false)} />
     </Card>
   );
 }
