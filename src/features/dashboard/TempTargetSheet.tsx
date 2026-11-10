@@ -5,6 +5,7 @@ import type { HeaterView } from '@/lib/derive';
 import { usePrinterStore } from '@/store/printer';
 import { useActivePrinter } from '@/store/printers';
 import { setHeaterTarget } from '@/lib/gcode';
+import { isBedZone } from '@/lib/preheat';
 
 /** Sets a heater's target; works for extruders, the bed and generic heaters. */
 export function TempTargetSheet({
@@ -31,8 +32,10 @@ export function TempTargetSheet({
   };
 
   const presets = printer?.tempPresets ?? [];
+  // Second bed zones follow the bed; anything else (a chamber) only gets a
+  // value when the preset names one.
   const presetValue = (p: (typeof presets)[number]) =>
-    heater.kind === 'bed' ? p.bed : heater.kind === 'extruder' ? p.extruder : (p.chamber ?? p.bed);
+    heater.kind === 'extruder' ? p.extruder : isBedZone(heater) ? p.bed : (p.chamber ?? 0);
 
   return (
     <Sheet open title={`${heater.name} einstellen`} onClose={onClose}>

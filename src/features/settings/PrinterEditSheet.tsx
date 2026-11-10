@@ -256,14 +256,14 @@ export function PrinterEditSheet({
         </Section>
 
         <Section title="Material-Presets">
-          <div className="grid grid-cols-[1fr_4rem_4rem_2.5rem] items-end gap-2 text-[11px] text-muted">
+          <div className="grid grid-cols-[1fr_4.75rem_4.75rem_2.5rem] items-end gap-2 text-[11px] text-muted">
             <span>Name</span>
             <span>Düse °C</span>
             <span>Bett °C</span>
             <span />
           </div>
           {draft.tempPresets.map((preset, index) => (
-            <div key={preset.id} className="grid grid-cols-[1fr_4rem_4rem_2.5rem] gap-2">
+            <div key={preset.id} className="grid grid-cols-[1fr_4.75rem_4.75rem_2.5rem] gap-2">
               <TextInput
                 value={preset.name}
                 aria-label="Presetname"
@@ -275,7 +275,7 @@ export function PrinterEditSheet({
                 aria-label={`${preset.name} Düsentemperatur`}
                 value={preset.extruder}
                 onChange={(e) => setPreset(index, { extruder: Number(e.target.value) })}
-                className="px-2 text-center"
+                className="px-1 text-center"
               />
               <TextInput
                 type="number"
@@ -283,7 +283,7 @@ export function PrinterEditSheet({
                 aria-label={`${preset.name} Betttemperatur`}
                 value={preset.bed}
                 onChange={(e) => setPreset(index, { bed: Number(e.target.value) })}
-                className="px-2 text-center"
+                className="px-1 text-center"
               />
               <Button
                 tone="ghost"

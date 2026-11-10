@@ -329,19 +329,17 @@ async function hydrate(
   set: (partial: Partial<PrinterRuntimeState>) => void,
   get: () => PrinterRuntimeState,
 ): Promise<void> {
-  const [info, printerInfo, temps, gcodeStore, procStats] = await Promise.allSettled([
+  const [info, printerInfo, temps, gcodeStore] = await Promise.allSettled([
     client.serverInfo(),
     client.printerInfo(),
     client.temperatureStore(true),
     client.gcodeStore(150),
-    client.procStats(),
   ]);
 
   if (get().client !== client) return; // printer switched mid-flight
 
   if (info.status === 'fulfilled') set({ serverInfo: info.value });
   if (printerInfo.status === 'fulfilled') set({ printerInfo: printerInfo.value });
-  if (procStats.status === 'fulfilled') set({ procStats: procStats.value });
   if (temps.status === 'fulfilled') set({ tempHistory: seedHistory(temps.value) });
   if (gcodeStore.status === 'fulfilled') {
     const entries: GcodeStoreEntry[] = gcodeStore.value.gcode_store ?? [];

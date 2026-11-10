@@ -73,7 +73,8 @@ export function PrintStatusCard() {
       if (action === 'pause') await client?.pausePrint();
       else if (action === 'resume') await client?.resumePrint();
       else await client?.cancelPrint();
-      toast.success(label);
+      // A pause is announced by the printer-event toast already.
+      if (action !== 'pause') toast.success(label);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Befehl fehlgeschlagen');
     }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { TempHistory } from '@/lib/tempHistory';
 import { orderSeriesKeys, seriesColor } from '@/lib/palette';
 import { prettyObjectName } from '@/lib/format';
+import { genericHeaterName } from '@/lib/derive';
 
 const PAD = { top: 10, right: 10, bottom: 18, left: 34 };
 const HEIGHT = 190;
@@ -292,6 +293,7 @@ function labelFor(key: string): string {
   if (key === 'extruder') return 'Extruder';
   if (/^extruder\d+$/.test(key)) return `Extruder ${key.slice(8)}`;
   if (key === 'heater_bed') return 'Bett';
+  if (key.startsWith('heater_generic ')) return genericHeaterName(key).replace(/^Heizbett/, 'Bett');
   return prettyObjectName(key);
 }
 

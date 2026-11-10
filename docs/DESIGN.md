@@ -132,3 +132,67 @@ Der Client zählt zudem seine Verbindungsgenerationen. Beim Verbinden wird auf e
 Oneshot-Token gewartet; ein Client, der währenddessen verworfen wird, darf danach
 nicht doch noch eine Verbindung aufbauen und Events in einen Store schreiben, der
 längst einem anderen Drucker gehört.
+
+## Fähigkeiten statt Modelle
+
+Die App fragt nie „ist das ein Neptune 4?", sondern „hat diese Konfiguration eine
+Sonde, ein `[bed_mesh]`, `[bed_screws]`?" (`lib/caps.ts`). Dasselbe Modell sieht je
+nach Umbau und Firmware anders aus: ein Ender 3 V2 mit oder ohne CR Touch, ein
+Neptune 4 Pro, dessen äußere Bettzone mal `heater_bed_outer` und mal anders heißt.
+Das gewählte Druckerprofil (`lib/profiles.ts`) setzt nur App-seitige Startwerte –
+Schrittweiten, Tempo, Material-Presets, Filamentweg – und Hinweise.
+
+Abgeleitete Entscheidungen, die sonst gern schiefgehen:
+
+- **Z-Offset speichern:** `Z_OFFSET_APPLY_PROBE` nur, wenn Z über die Sonde homt
+  (`endstop_pin` enthält `z_virtual_endstop`), sonst `Z_OFFSET_APPLY_ENDSTOP` – auch
+  bei einer Sonde, die nur das Mesh misst. Während eines Drucks wird nie
+  `SAVE_CONFIG` mitgeschickt, weil es Klipper neu startet.
+- **Heizer adressieren:** Klipper erwartet `HEATER=<letztes Wort des Abschnitts>`,
+  also `heater_bed_outer` statt `heater_generic heater_bed_outer` (`heaterName`).
+- **Extrusion:** Klipper lehnt jede einzelne Nur-Extrusionsbewegung über
+  `max_extrude_only_distance` ab (Standard 50 mm). `extrudeMoves` teilt längere Wege
+  in gleich lange Stücke, die das Limit nie überschreiten.
+
+## Lange G-Code-Aufrufe
+
+Moonraker beantwortet `printer.gcode.script` erst, wenn Klipper das Skript
+abgearbeitet hat. `G28` auf einer Z-Achse mit 5 mm/s, `BED_MESH_CALIBRATE` oder
+`PID_CALIBRATE` dauern Minuten. Der normale RPC-Timeout (20 s) würde dort einen
+Fehler melden, während der Drucker korrekt weiterarbeitet. G-Code-Aufrufe haben
+deshalb einen eigenen Timeout von einer Stunde; ein Verbindungsabbruch lehnt sie
+weiterhin sofort ab.
+
+Der Filament-Assistent schickt jedes Teilstück als eigenen Aufruf. So bleibt jeder
+Aufruf kurz, der Fortschritt ist sichtbar, und „Anhalten" greift zwischen zwei
+Stücken. Ein abschließendes `M400` wartet, bis die Motoren wirklich fertig sind.
+
+## Bed-Mesh-Farbskala
+
+Mesh-Werte sind vorzeichenbehaftete Abweichungen von Z=0 – Bett zu hoch oder zu tief.
+Das ist eine **divergierende** Aufgabe: zwei Farbtöne mit neutralem Grau in der
+Mitte, symmetrisch um null skaliert (±größte Abweichung), damit gleich große
+Abweichungen gleich stark wirken.
+
+| | Tief | Mitte (0) | Hoch |
+| --- | --- | --- | --- |
+| Hell | `#1c5cab` | `#f0efec` | `#a32a26` |
+| Dunkel | `#6da7ec` | `#383835` | `#e57f78` |
+
+- Blau und Rot sind kalt/warm und lesen sich als Gegensätze; kein Regenbogen.
+- Beide Pole haben dieselbe OKLCH-Helligkeit (hell ≈ 0,48, dunkel ≈ 0,71), damit
+  keine Richtung schlimmer aussieht als die andere.
+- Interpoliert wird in OKLab, damit die Helligkeit entlang jedes Arms gleichmäßig
+  verläuft; `test/bedMesh.test.ts` prüft Monotonie und gleiche Pol-Helligkeit.
+- Werte stehen nicht in jeder Zelle. Antippen zeigt den Messwert, tiefster und
+  höchster Punkt sind markiert und darunter beschriftet, und eine Tabellenansicht
+  liefert alle Zahlen – die Farbe trägt die Information nie allein.
+- Zeile 0 der Klipper-Matrix ist die Vorderkante des Betts und steht unten, so wie
+  man vor dem Drucker steht.
+
+## Benachrichtigungen
+
+Gemeldet werden nur **Übergänge** (`lib/notify.ts`): wer sich mit einem Drucker
+verbindet, dessen Druck längst fertig ist, bekommt kein „Druck fertig". Nach jedem
+Verbindungsaufbau wird zuerst eine Ausgangslage genommen. Sichtbar offen zeigt die
+App Toasts, im Hintergrund Systembenachrichtigungen über den Service Worker.

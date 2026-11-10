@@ -102,7 +102,7 @@ export function getHeaters(status: PrinterStatus): HeaterView[] {
  * Segmented beds (Neptune 4 Pro/Plus/Max) expose the second zone as a
  * heater_generic; give it a name that says what it is.
  */
-function genericHeaterName(key: string): string {
+export function genericHeaterName(key: string): string {
   const name = key.slice(key.indexOf(' ') + 1).toLowerCase();
   if (/bed.*(outer|aussen|außen)|(outer|aussen|außen).*bed/.test(name)) return 'Heizbett außen';
   if (/^heater_bed_?\d+$|^bed_?\d+$/.test(name)) return `Heizbett ${name.match(/\d+$/)![0]}`;
